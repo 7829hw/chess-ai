@@ -1,0 +1,173 @@
+const { chromium } = require('playwright');
+const BASE = process.env.BASE || 'http://chess';
+const OUT = process.env.OUT || '/work/out';
+
+const results = [];
+const check = (name, pass, detail = '') => {
+  results.push({ name, pass, detail });
+  console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? '  -- ' + detail : ''}`);
+};
+
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1280, height: 940 } });
+
+  const engineScriptHits = [];
+  const failedRequests = [];
+  const pageErrors = [];
+  page.on('request', (r) => {
+    if (r.url().includes('stockfish-18-lite-single.js')) engineScriptHits.push(r.url());
+  });
+  page.on('requestfailed', (r) => failedRequests.push(`${r.url()} ${r.failure()?.errorText}`));
+  page.on('response', (r) => { if (r.status() >= 400) failedRequests.push(`${r.url()} -> ${r.status()}`); });
+  page.on('pageerror', (e) => pageErrors.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error') pageErrors.push('console: ' + m.text()); });
+
+  const layout = () => page.$$eval('#board .square', (els) =>
+    els.map((e) => ({ sq: e.dataset.square, piece: e.dataset.piece || null })));
+  const banner = () => page.$eval('#status-banner', (e) => e.textContent.trim());
+  const moves = () => page.$$eval('#move-list .move-san', (els) => els.map((e) => e.textContent));
+
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+
+  check('loading banner shown', /엔진 로딩 중/.test(await banner()), await banner());
+
+  // Engine boots, first game auto-starts with the user as White.
+  await page.waitForFunction(
+    () => document.getElementById('status-banner').textContent.includes('Your move'),
+    null, { timeout: 180000 });
+  check('engine reached ready + player turn', true, await banner());
+
+  // ---- orientation: user is White and must be on TOP ----
+  let grid = await layout();
+  check('white-user: top-left square is h1', grid[0].sq === 'h1', grid[0].sq);
+  check('white-user: top-right square is a1', grid[7].sq === 'a1', grid[7].sq);
+  check('white-user: bottom-left square is h8', grid[56].sq === 'h8', grid[56].sq);
+  const topRow = grid.slice(0, 16);
+  const bottomRow = grid.slice(48);
+  check('white-user: user (White) army occupies the top two rows',
+    topRow.every((c) => c.piece && c.piece[0] === 'w'),
+    topRow.map((c) => c.piece).join(','));
+  check('white-user: Stockfish (Black) army occupies the bottom two rows',
+    bottomRow.every((c) => c.piece && c.piece[0] === 'b'),
+    bottomRow.map((c) => c.piece).join(','));
+
+  await page.screenshot({ path: `${OUT}/01-white-user.png` });
+
+  // ---- click-to-move: e2 -> e4, then Stockfish answers ----
+  await page.click('[data-square="e2"]');
+  const highlighted = await page.$$eval('.square--target', (els) => els.map((e) => e.dataset.square));
+  check('legal targets highlighted for e2', highlighted.sort().join(',') === 'e3,e4', highlighted.join(','));
+  await page.screenshot({ path: `${OUT}/02-selected-e2.png` });
+
+  await page.click('[data-square="e4"]');
+  await page.waitForFunction(
+    () => document.querySelectorAll('#move-list .move-san').length >= 2, null, { timeout: 60000 });
+  const afterFirst = await moves();
+  check('user move recorded as e4', afterFirst[0] === 'e4', afterFirst.join(' '));
+  check('Stockfish replied with a move', Boolean(afterFirst[1]), afterFirst.join(' '));
+  check('back to player turn', /Your move|Check!/.test(await banner()), await banner());
+  const lastMoveSquares = await page.$$eval('.square--last', (els) => els.map((e) => e.dataset.square));
+  check('last move highlighted', lastMoveSquares.length === 2, lastMoveSquares.join(','));
+
+  // ---- drag-to-move: d2 -> d4 ----
+  const box = async (sq) => (await page.$(`[data-square="${sq}"]`)).boundingBox();
+  const from = await box('d2');
+  const to = await box('d4');
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2 + 8, { steps: 4 });
+  await page.screenshot({ path: `${OUT}/03-dragging.png` });
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForFunction(
+    () => document.querySelectorAll('#move-list .move-san').length >= 4, null, { timeout: 60000 });
+  const afterDrag = await moves();
+  check('drag produced d4', afterDrag[2] === 'd4', afterDrag.join(' '));
+
+  // ---- input locked while the engine thinks ----
+  const lockedDuringThink = await page.evaluate(async () => {
+    const board = document.getElementById('board');
+    return { locked: board.classList.contains('board--locked') };
+  });
+  check('board unlocked on player turn', lockedDuringThink.locked === false, JSON.stringify(lockedDuringThink));
+
+  // ---- switch to Black: needs an explicit New Game, then Stockfish opens ----
+  await page.click('button[data-side="b"]');
+  const note = await page.$eval('#pending-note', (e) => ({ hidden: e.hidden, text: e.textContent.trim() }));
+  check('side change mid-game shows pending note', note.hidden === false, note.text);
+
+  await page.click('#new-game');
+  await page.waitForFunction(
+    () => document.querySelectorAll('#move-list .move-san').length === 1
+       && document.getElementById('status-banner').textContent.includes('Your move'),
+    null, { timeout: 60000 });
+
+  grid = await layout();
+  check('black-user: top-left square is a8', grid[0].sq === 'a8', grid[0].sq);
+  check('black-user: top-right square is h8', grid[7].sq === 'h8', grid[7].sq);
+  const topRowB = grid.slice(0, 16);
+  const bottomRowB = grid.slice(48);
+  check('black-user: user (Black) army occupies the top two rows',
+    topRowB.every((c) => c.piece && c.piece[0] === 'b'),
+    topRowB.map((c) => c.piece).join(','));
+  // Stockfish has already opened as White, so one of its home squares is empty.
+  const bottomOccupied = bottomRowB.filter((c) => c.piece);
+  check('black-user: Stockfish (White) army occupies the bottom two rows',
+    bottomOccupied.length >= 15 && bottomOccupied.every((c) => c.piece[0] === 'w'),
+    bottomRowB.map((c) => c.piece || '-').join(','));
+  check('black-user: no White piece anywhere in the top two rows',
+    topRowB.every((c) => !c.piece || c.piece[0] === 'b'));
+  check('black-user: Stockfish moved first', (await moves()).length === 1, (await moves()).join(' '));
+  check('tags swapped',
+    (await page.$eval('#user-tag', (e) => e.textContent)).includes('Black')
+    && (await page.$eval('#engine-tag', (e) => e.textContent)).includes('White'));
+  check('move list reset to a single move', (await moves()).length === 1);
+
+  await page.screenshot({ path: `${OUT}/04-black-user.png` });
+
+  // user (Black) replies to confirm play works from the flipped side
+  await page.click('[data-square="e7"]');
+  await page.click('[data-square="e5"]');
+  await page.waitForFunction(
+    () => document.querySelectorAll('#move-list .move-san').length >= 3, null, { timeout: 60000 });
+  check('black user can move', (await moves())[1] === 'e5', (await moves()).join(' '));
+
+  // ---- difficulty ----
+  await page.click('button[data-difficulty="hard"]');
+  check('difficulty switch reflected in UI',
+    (await page.$eval('button[data-difficulty="hard"]', (e) => e.classList.contains('is-active'))));
+  check('engine status mentions difficulty',
+    /Hard/.test(await page.$eval('#engine-value', (e) => e.textContent)),
+    await page.$eval('#engine-value', (e) => e.textContent));
+
+  // ---- exactly one worker across three games ----
+  await page.click('#new-game');
+  await page.waitForTimeout(1500);
+  check('engine worker script fetched exactly once', engineScriptHits.length === 1,
+    `${engineScriptHits.length} hit(s)`);
+
+  // ---- mobile viewport ----
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await mobile.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await mobile.waitForFunction(
+    () => document.getElementById('status-banner').textContent.includes('Your move'),
+    null, { timeout: 180000 });
+  const overflow = await mobile.evaluate(() => ({
+    docW: document.documentElement.scrollWidth,
+    winW: window.innerWidth,
+    boardW: document.getElementById('board').getBoundingClientRect().width,
+  }));
+  check('no horizontal overflow on 390px viewport', overflow.docW <= overflow.winW + 1, JSON.stringify(overflow));
+  await mobile.screenshot({ path: `${OUT}/05-mobile.png`, fullPage: true });
+  await mobile.close();
+
+  check('no failed requests', failedRequests.length === 0, failedRequests.join(' | '));
+  check('no page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
+
+  await browser.close();
+
+  const failed = results.filter((r) => !r.pass);
+  console.log(`\n=== ${results.length - failed.length}/${results.length} passed ===`);
+  process.exit(failed.length ? 1 : 0);
+})().catch((e) => { console.error('HARNESS ERROR', e); process.exit(2); });

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="description" content="Play chess against the Stockfish engine running fully in your browser via WebAssembly." />
+  <title>Chess vs Stockfish</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main class="app">
+
+    <header class="app-header" data-area="header">
+      <h1 class="app-title">Chess vs Stockfish</h1>
+      <p id="status-banner" class="status-banner" data-tone="loading">Stockfish 엔진 로딩 중...</p>
+    </header>
+
+    <section class="panel controls" data-area="controls" aria-label="Game settings">
+      <div class="control-row">
+        <span class="control-label" id="side-label">Your side</span>
+        <div class="segmented" id="side-group" role="group" aria-labelledby="side-label">
+          <button type="button" class="seg-btn is-active" data-side="w" aria-pressed="true">White</button>
+          <button type="button" class="seg-btn" data-side="b" aria-pressed="false">Black</button>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label" id="difficulty-label">Difficulty</span>
+        <div class="segmented" id="difficulty-group" role="group" aria-labelledby="difficulty-label">
+          <button type="button" class="seg-btn" data-difficulty="beginner" aria-pressed="false">Beginner</button>
+          <button type="button" class="seg-btn is-active" data-difficulty="medium" aria-pressed="true">Medium</button>
+          <button type="button" class="seg-btn" data-difficulty="hard" aria-pressed="false">Hard</button>
+        </div>
+      </div>
+
+      <div class="control-row control-row--action">
+        <button type="button" id="new-game" class="btn-primary" disabled>New Game</button>
+      </div>
+
+      <p id="pending-note" class="pending-note" hidden></p>
+    </section>
+
+    <section class="board-area" data-area="board" aria-label="Chess board">
+      <!-- The user's army is ALWAYS rendered on the top half of the board,
+           Stockfish's army ALWAYS on the bottom half. See board.js. -->
+      <p class="side-tag side-tag--user"><span id="user-tag">USER · White</span></p>
+
+      <div class="board-frame">
+        <div id="board" class="board" role="grid" aria-label="Chess board, your pieces are at the top"></div>
+
+        <div id="promotion" class="promotion" hidden role="dialog" aria-modal="true" aria-label="Choose promotion piece">
+          <div class="promotion-card">
+            <p class="promotion-title">Promote to</p>
+            <div class="promotion-options" id="promotion-options"></div>
+            <button type="button" class="promotion-cancel" id="promotion-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="side-tag side-tag--engine"><span id="engine-tag">STOCKFISH · Black</span></p>
+    </section>
+
+    <section class="panel info" data-area="info" aria-label="Game state">
+      <dl class="info-grid">
+        <div class="info-item">
+          <dt>Turn</dt>
+          <dd id="turn-value">White</dd>
+        </div>
+        <div class="info-item">
+          <dt>Engine</dt>
+          <dd id="engine-value">로딩 중...</dd>
+        </div>
+        <div class="info-item">
+          <dt>Result</dt>
+          <dd id="result-value">&mdash;</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="panel moves" data-area="moves" aria-label="Move history">
+      <h2 class="panel-title">Moves</h2>
+      <ol id="move-list" class="move-list" aria-live="polite"></ol>
+      <p id="move-empty" class="move-empty">No moves yet.</p>
+    </section>
+
+    <footer class="app-footer">
+      <p>
+        Stockfish 18 (GPL-3.0) runs entirely in your browser as WebAssembly inside a Web Worker.
+        Rules by <span class="mono">chess.js</span> (BSD-2-Clause). No backend, no engine API calls.
+      </p>
+    </footer>
+
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+  <noscript>
+    <p style="padding:1rem;text-align:center">This chess simulator requires JavaScript and WebAssembly.</p>
+  </noscript>
+</body>
+</html>

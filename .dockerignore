@@ -1,0 +1,8 @@
+# Only nginx.conf and public/ are needed inside the image.
+.git
+.gitignore
+tests
+README.md
+docker-compose.yml
+*.md
+*.png
