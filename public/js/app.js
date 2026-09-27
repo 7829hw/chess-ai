@@ -24,7 +24,7 @@ const ENGINE_STATUS = Object.freeze({
   [STATE.ENGINE_THINKING]: 'Stockfish 생각 중...',
   [STATE.GAME_OVER]: 'Stockfish 대기 중',
   [STATE.SETUP]: 'Stockfish 대기 중',
-  [STATE.ERROR]: 'Stockfish engine failed to load.',
+  [STATE.ERROR]: 'Stockfish 엔진을 불러오지 못했습니다.',
 });
 
 const BANNER_TONE = Object.freeze({
@@ -134,16 +134,16 @@ function render(game) {
 
   // During setup the tags (and board orientation) preview the chosen side.
   const userColor = state === STATE.SETUP ? selectedSide : game.userColor;
-  dom.userTag.textContent = `USER · ${COLOR_NAMES[userColor]}`;
+  dom.userTag.textContent = `나 · ${COLOR_NAMES[userColor]}`;
   dom.engineTag.textContent = `STOCKFISH · ${COLOR_NAMES[oppositeColor(userColor)]}`;
 
   dom.turnValue.textContent = state === STATE.GAME_OVER || state === STATE.SETUP
     ? '—'
-    : `${COLOR_NAMES[game.turn]}${game.turn === userColor ? ' (you)' : ' (Stockfish)'}`;
+    : `${COLOR_NAMES[game.turn]}${game.turn === userColor ? ' (나)' : ' (Stockfish)'}`;
 
   renderEngineStatus(game);
 
-  dom.startValue.textContent = game.isCustomStart ? 'Custom position' : 'Standard';
+  dom.startValue.textContent = game.isCustomStart ? '사용자 지정' : '초기 배치';
 
   dom.resultValue.textContent = game.result
     ? `${game.result.headline} · ${game.result.detail}`
@@ -159,7 +159,7 @@ function render(game) {
   dom.pendingNote.hidden = !sideMismatch;
   if (sideMismatch) {
     dom.pendingNote.textContent =
-      `You are still playing ${COLOR_NAMES[userColor]}. Press "New Game" to switch to ${COLOR_NAMES[selectedSide]}.`;
+      `지금은 ${COLOR_NAMES[userColor]}으로 두고 있습니다. ${COLOR_NAMES[selectedSide]}으로 바꾸려면 "새 게임"을 누르세요.`;
   }
 
   renderMoveList(game.moveHistory, game.startFen);
@@ -172,15 +172,15 @@ function bannerText(game) {
     case STATE.ERROR:
       return game.errorMessage ?? ENGINE_STATUS[STATE.ERROR];
     case STATE.READY:
-      return 'Stockfish 준비 완료 — starting game...';
+      return 'Stockfish 준비 완료 — 게임 시작 중...';
     case STATE.ENGINE_THINKING:
       return ENGINE_STATUS[STATE.ENGINE_THINKING];
     case STATE.GAME_OVER:
-      return game.result ? `${game.result.headline} · ${game.result.detail}` : 'Game over';
+      return game.result ? `${game.result.headline} · ${game.result.detail}` : '게임 종료';
     case STATE.PLAYER_TURN:
-      return game.isCheck ? 'Check! Your move.' : 'Your move.';
+      return game.isCheck ? '체크! 내 차례입니다.' : '내 차례입니다.';
     case STATE.SETUP:
-      return 'Board setup — arrange the pieces, then start.';
+      return '보드 세팅 — 기물을 배치한 뒤 시작하세요.';
     default:
       return '';
   }
@@ -189,7 +189,7 @@ function bannerText(game) {
 function renderEngineStatus(game) {
   const base = ENGINE_STATUS[game.state] ?? '';
   const suffix = game.state === STATE.ENGINE_THINKING && searchDepth !== null
-    ? ` (depth ${searchDepth})`
+    ? ` (깊이 ${searchDepth})`
     : '';
   const level = game.state === STATE.PLAYER_TURN || game.state === STATE.GAME_OVER
     ? ` · ${game.difficulty.label}`

@@ -164,8 +164,8 @@ const OUT = process.env.OUT || '/work/out';
       await h.controller.startNewGame({ userColor: 'w' });
       await playOut(h, ['e2e4', 'f1c4', 'd1h5', 'h5f7'], ['e7e5', 'b8c6', 'g8f6']);
       check('state is GAME_OVER', h.controller.state === STATE.GAME_OVER, h.controller.state);
-      check('headline is "You win"', h.controller.result?.headline === 'You win', JSON.stringify(h.controller.result));
-      check('detail mentions Checkmate', /Checkmate/.test(h.controller.result?.detail ?? ''), h.controller.result?.detail);
+      check('headline is "You win"', h.controller.result?.headline === '나의 승리', JSON.stringify(h.controller.result));
+      check('detail mentions Checkmate', /체크메이트/.test(h.controller.result?.detail ?? ''), h.controller.result?.detail);
       check('board is locked after mate', h.root.classList.contains('board--locked'));
 
       // No further moves may be accepted, and the engine must not be asked again.
@@ -191,7 +191,7 @@ const OUT = process.env.OUT || '/work/out';
         await tick(5);
       }
       check('Stockfish mate detected', h.controller.state === STATE.GAME_OVER, h.controller.state);
-      check('headline is "Stockfish wins"', h.controller.result?.headline === 'Stockfish wins',
+      check('headline is "Stockfish wins"', h.controller.result?.headline === 'Stockfish 승리',
         JSON.stringify(h.controller.result));
     }
 
@@ -203,9 +203,9 @@ const OUT = process.env.OUT || '/work/out';
         ['e2e3', 'd1h5', 'h5a5', 'a5c7', 'h2h4', 'c7d7', 'd7b7', 'b7b8', 'b8c8', 'c8e6'],
         ['a7a5', 'a8a6', 'h7h5', 'a6h6', 'f7f6', 'e8f7', 'd8d3', 'd3h7', 'f7g6']);
       check('stalemate ends the game', h.controller.state === STATE.GAME_OVER, h.controller.state);
-      check('stalemate scored as a draw', h.controller.result?.headline === 'Draw',
+      check('stalemate scored as a draw', h.controller.result?.headline === '무승부',
         JSON.stringify(h.controller.result));
-      check('stalemate named in the detail', h.controller.result?.detail === 'Stalemate',
+      check('stalemate named in the detail', h.controller.result?.detail === '스테일메이트',
         h.controller.result?.detail);
     }
 
@@ -215,9 +215,9 @@ const OUT = process.env.OUT || '/work/out';
       await h.controller.startNewGame({ userColor: 'w' });
       await playOut(h, ['g1f3', 'f3g1', 'g1f3', 'f3g1'], ['g8f6', 'f6g8', 'g8f6', 'f6g8']);
       check('threefold repetition ends the game', h.controller.state === STATE.GAME_OVER, h.controller.state);
-      check('threefold reported as a draw', h.controller.result?.headline === 'Draw',
+      check('threefold reported as a draw', h.controller.result?.headline === '무승부',
         JSON.stringify(h.controller.result));
-      check('threefold named in the detail', h.controller.result?.detail === 'Threefold repetition',
+      check('threefold named in the detail', h.controller.result?.detail === '3회 동형 반복',
         h.controller.result?.detail);
     }
 
@@ -286,7 +286,7 @@ const OUT = process.env.OUT || '/work/out';
       await tick(10);
       check('bestmove (none) in a live game raises ERROR', h.controller.state === STATE.ERROR, h.controller.state);
       check('error message surfaced to the UI',
-        /Stockfish returned no move/.test(h.controller.errorMessage ?? ''), h.controller.errorMessage);
+        /수를 내지 못했습니다/.test(h.controller.errorMessage ?? ''), h.controller.errorMessage);
       check('board locked in ERROR state', h.root.classList.contains('board--locked'));
     }
 
@@ -298,7 +298,7 @@ const OUT = process.env.OUT || '/work/out';
       await h.controller.attemptUserMove('e2', 'e4');
       await tick(10);
       check('illegal engine move raises ERROR', h.controller.state === STATE.ERROR, h.controller.state);
-      check('illegal engine move reported', /illegal move/.test(h.controller.errorMessage ?? ''),
+      check('illegal engine move reported', /잘못된 수/.test(h.controller.errorMessage ?? ''),
         h.controller.errorMessage);
     }
 
@@ -373,7 +373,7 @@ const OUT = process.env.OUT || '/work/out';
       check('two white kings rejected', !ok('4k3/8/8/8/8/8/8/3KK3 w - - 0 1').ok);
       check('pawn on back rank rejected', !ok('4k2P/8/8/8/8/8/8/4K3 w - - 0 1').ok);
       const inCheck = ok('4k3/8/8/8/8/8/4R3/3K4 w - - 0 1');
-      check('check on the side not to move rejected', !inCheck.ok && /Black is in check/.test(inCheck.error),
+      check('check on the side not to move rejected', !inCheck.ok && /흑이 체크 상태/.test(inCheck.error),
         inCheck.error);
       check('check on the side to move accepted', ok('4k3/4R3/8/8/8/8/8/4K3 b - - 0 1').ok);
       check('checkmate position rejected', !ok('4k3/4Q3/4K3/8/8/8/8/8 b - - 0 1').ok);

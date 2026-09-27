@@ -20,7 +20,7 @@ import {
 } from './constants.js';
 import { DEFAULT_POSITION, normalizePosition } from './position.js';
 
-const ENGINE_LOAD_ERROR = 'Stockfish engine failed to load.';
+const ENGINE_LOAD_ERROR = 'Stockfish 엔진을 불러오지 못했습니다.';
 
 export class GameController {
   #chess = new Chess();
@@ -343,7 +343,7 @@ export class GameController {
       });
     } catch (error) {
       if (gameId !== this.#gameId) return;
-      this.#failEngine(error, 'Stockfish stopped responding. Reload the page to retry.');
+      this.#failEngine(error, 'Stockfish가 응답하지 않습니다. 페이지를 새로고침해 주세요.');
       return;
     }
 
@@ -359,7 +359,7 @@ export class GameController {
       if (!this.#evaluateGameEnd()) {
         this.#failEngine(
           new Error('bestmove (none) in a live position'),
-          'Stockfish returned no move. Reload the page to retry.',
+          'Stockfish가 수를 내지 못했습니다. 페이지를 새로고침해 주세요.',
         );
       }
       return;
@@ -387,7 +387,7 @@ export class GameController {
       return true;
     } catch (error) {
       console.error('[game] illegal engine move', uci, error);
-      this.#failEngine(error, `Stockfish suggested an illegal move (${uci}). Reload the page to retry.`);
+      this.#failEngine(error, `Stockfish가 잘못된 수(${uci})를 두었습니다. 페이지를 새로고침해 주세요.`);
       return false;
     }
   }
@@ -405,22 +405,22 @@ export class GameController {
   #evaluateGameEnd() {
     if (!this.#chess.isGameOver()) return false;
 
-    let headline = 'Draw';
-    let detail = 'Draw';
+    let headline = '무승부';
+    let detail = '무승부';
 
     if (this.#chess.isCheckmate()) {
       // The side to move is the one that got mated.
       const matedColor = this.#chess.turn();
-      headline = matedColor === this.#userColor ? 'Stockfish wins' : 'You win';
-      detail = `Checkmate — ${COLOR_NAMES[matedColor]} is mated`;
+      headline = matedColor === this.#userColor ? 'Stockfish 승리' : '나의 승리';
+      detail = `체크메이트 — ${COLOR_NAMES[matedColor]} 패배`;
     } else if (this.#chess.isStalemate()) {
-      detail = 'Stalemate';
+      detail = '스테일메이트';
     } else if (this.#chess.isInsufficientMaterial()) {
-      detail = 'Insufficient material';
+      detail = '기물 부족';
     } else if (this.#chess.isThreefoldRepetition()) {
-      detail = 'Threefold repetition';
+      detail = '3회 동형 반복';
     } else if (this.#chess.isDrawByFiftyMoves()) {
-      detail = 'Fifty-move rule';
+      detail = '50수 규칙';
     }
 
     this.#result = { headline, detail };

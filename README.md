@@ -181,8 +181,8 @@ this.#board.setOrientation(this.engineColor);   // = oppositeColor(userColor)
 (rank가 증가하는 방향으로 내려가고 file은 역순). 좌표 라벨도 같은 배열에서
 계산하므로 항상 일치합니다.
 
-`New Game`을 누를 때마다 orientation이 다시 계산되고, 게임 도중 진영 버튼을
-누르면 "New Game을 눌러야 적용된다"는 안내가 표시됩니다. 아직 한 수도 두지
+`새 게임`을 누를 때마다 orientation이 다시 계산되고, 게임 도중 진영 버튼을
+누르면 "새 게임을 눌러야 적용된다"는 안내가 표시됩니다. 아직 한 수도 두지
 않았다면 즉시 새 게임으로 적용됩니다.
 
 ---
@@ -193,9 +193,9 @@ this.#board.setOrientation(this.engineColor);   // = oppositeColor(userColor)
 
 | 난이도 | `Skill Level` | `go depth` | `go movetime` |
 |---|---|---|---|
-| Beginner | 1 | 5 | 300 ms |
-| **Medium (기본값)** | **8** | **11** | **800 ms** |
-| Hard | 20 | 16 | 2000 ms |
+| 초급 (`beginner`) | 1 | 5 | 300 ms |
+| **중급 (`medium`, 기본값)** | **8** | **11** | **800 ms** |
+| 고급 (`hard`) | 20 | 16 | 2000 ms |
 
 * `Skill Level`(0–20)은 Stockfish가 **일부러 최선 수를 피하도록** 하는 공식 옵션이라
   단순히 시간을 줄이는 것보다 자연스럽게 약해집니다.
@@ -209,23 +209,23 @@ this.#board.setOrientation(this.engineColor);   // = oppositeColor(userColor)
 
 ## 보드 세팅 (사용자 지정 시작 포지션)
 
-`Set up board`를 누르면 진행 중인 게임이 일시정지되고 보드가 편집 모드로 바뀝니다.
+`보드 세팅`을 누르면 진행 중인 게임이 일시정지되고 보드가 편집 모드로 바뀝니다.
 
 * 팔레트에서 기물(또는 ✕ 지우개)을 고른 뒤 칸을 탭하면 배치됩니다.
   같은 기물을 다시 탭하거나 우클릭하면 지워집니다. 킹은 색마다 하나라 다시 놓으면 이동합니다.
-* `To move`로 먼저 둘 쪽을, `Castling`으로 캐슬링 권리를 지정합니다.
+* `먼저 둘 쪽`으로 차례를, `캐슬링`으로 캐슬링 권리를 지정합니다.
   킹과 룩이 원래 자리에 있을 때만 체크할 수 있습니다.
-* `Standard`는 초기 배치, `Clear`는 빈 보드입니다. FEN을 붙여 넣고 `Load`해도 됩니다.
-* `Your side`로 내 진영을 고르고 `Start from this position`을 누르면 시작합니다.
-  Stockfish 차례로 시작하면 엔진이 먼저 둡니다. `Cancel`은 원래 게임으로 돌아갑니다.
+* `초기 배치`는 표준 시작 배치, `비우기`는 빈 보드입니다. FEN을 붙여 넣고 `불러오기`해도 됩니다.
+* `내 진영`을 고르고 `이 포지션으로 시작`을 누르면 시작합니다.
+  Stockfish 차례로 시작하면 엔진이 먼저 둡니다. `취소`는 원래 게임으로 돌아갑니다.
 
 시작 전에 `position.js`가 검증합니다. chess.js의 `validateFen`(킹 각 1개, 1/8랭크 폰 금지)에
 더해, 차례가 아닌 쪽이 체크 상태인 포지션, 이미 체크메이트·스테일메이트인 포지션, 기물 부족,
 한 색 16개 초과 / 폰 8개 초과를 거부하고, 불가능한 캐슬링 권리와 앙파상 칸은 제거합니다.
 Stockfish에는 `position fen <FEN> moves ...`로 전달됩니다.
 
-사용자 지정 포지션으로 시작한 뒤에는 `New Game`이 같은 포지션으로 다시 시작합니다.
-일반 게임으로 돌아가려면 세팅에서 `Standard`로 시작하면 됩니다.
+사용자 지정 포지션으로 시작한 뒤에는 `새 게임`이 같은 포지션으로 다시 시작합니다.
+일반 게임으로 돌아가려면 세팅에서 `초기 배치`로 시작하면 됩니다.
 
 ---
 
@@ -311,7 +311,7 @@ LOADING ──> READY ──> PLAYER_TURN <──> ENGINE_THINKING ──> GAME_
 | 이전 게임의 `bestmove`가 새 게임에 적용 | `gameId` 증가로 무효화 + 엔진 쪽 `searchSeq` 이중 검사 |
 | 엔진 사고 중 사용자 입력 | `PLAYER_TURN`이 아니면 `legalTargetsFor()`가 빈 배열, 보드도 `board--locked` |
 | 게임 종료 후 추가 수 | `GAME_OVER`에서 입력·탐색 모두 차단, 종료 시 `cancelSearch()` |
-| 진영 변경 후 orientation 오류 | orientation은 `New Game`마다 `engineColor`로 재계산 |
+| 진영 변경 후 orientation 오류 | orientation은 `새 게임`마다 `engineColor`로 재계산 |
 | WASM 경로 오류 | wasm 절대 URL을 Worker fragment로 명시 전달 |
 | Worker 내부 상대 경로 오해석 | 위와 동일. `import.meta.url` 기준이라 sub-path에도 안전 |
 | 브라우저 캐시의 옛 Worker | JS는 `no-cache` + Worker URL에 `?v=APP_VERSION` |
@@ -356,9 +356,9 @@ docker compose up --build -d
   iOS는 16.4 미만에서 동작하지 않습니다.
 * **ES modules / `import.meta`** — 트랜스파일하지 않으므로 레거시 Edge와 IE는 지원하지 않습니다.
 * **최초 로딩 트래픽** — 엔진 바이너리가 gzip 후 약 5.6 MB입니다. 첫 방문에는
-  모바일 회선에서 수 초가 걸릴 수 있으며, 그동안 `New Game`은 비활성화되고
+  모바일 회선에서 수 초가 걸릴 수 있으며, 그동안 `새 게임`은 비활성화되고
   "Stockfish 엔진 로딩 중..."이 표시됩니다. 이후에는 1년 캐시로 즉시 로드됩니다.
-* **모바일 성능** — 단일 스레드 WASM이라 `Hard`(depth 16 / 2 s)는 구형 단말에서
+* **모바일 성능** — 단일 스레드 WASM이라 `고급`(depth 16 / 2 s)는 구형 단말에서
   `movetime` 상한에 먼저 걸립니다. 실력이 조금 낮아질 뿐 정상 동작합니다.
 * **저전력 모드 / 백그라운드 탭** — 탭이 백그라운드로 가면 브라우저가 타이머를
   스로틀링해 엔진 응답이 늦어질 수 있습니다.
@@ -400,7 +400,7 @@ JS는 `no-cache`지만 프록시나 서비스워커가 끼어 있으면 남을 �
 그리고 hard reload(Ctrl+Shift+R)를 사용하세요.
 
 **엔진이 너무 느림 / 브라우저가 버벅임**
-`Beginner`로 낮추거나 `constants.js`의 `DIFFICULTIES`에서 `movetime`을 줄이세요.
+`초급`으로 낮추거나 `constants.js`의 `DIFFICULTIES`에서 `movetime`을 줄이세요.
 
 **포트 8080이 이미 사용 중**
 `docker-compose.yml`의 `ports`를 `"9090:80"` 등으로 바꾸고 다시 `docker compose up`.

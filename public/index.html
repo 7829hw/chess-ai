@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="dark" />
-  <meta name="description" content="Play chess against the Stockfish engine running fully in your browser via WebAssembly." />
-  <title>Chess vs Stockfish</title>
+  <meta name="description" content="브라우저 안에서 WebAssembly로 돌아가는 Stockfish 엔진과 체스를 둡니다." />
+  <title>체스 vs Stockfish</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -13,127 +13,127 @@
   <main class="app">
 
     <header class="app-header" data-area="header">
-      <h1 class="app-title">Chess vs Stockfish</h1>
+      <h1 class="app-title">체스 vs Stockfish</h1>
       <p id="status-banner" class="status-banner" data-tone="loading">Stockfish 엔진 로딩 중...</p>
     </header>
 
-    <section class="panel controls" data-area="controls" aria-label="Game settings">
+    <section class="panel controls" data-area="controls" aria-label="게임 설정">
       <div class="control-row">
-        <span class="control-label" id="side-label">Your side</span>
+        <span class="control-label" id="side-label">내 진영</span>
         <div class="segmented" id="side-group" role="group" aria-labelledby="side-label">
-          <button type="button" class="seg-btn is-active" data-side="w" aria-pressed="true">White</button>
-          <button type="button" class="seg-btn" data-side="b" aria-pressed="false">Black</button>
+          <button type="button" class="seg-btn is-active" data-side="w" aria-pressed="true">백</button>
+          <button type="button" class="seg-btn" data-side="b" aria-pressed="false">흑</button>
         </div>
       </div>
 
       <div class="control-row">
-        <span class="control-label" id="difficulty-label">Difficulty</span>
+        <span class="control-label" id="difficulty-label">난이도</span>
         <div class="segmented" id="difficulty-group" role="group" aria-labelledby="difficulty-label">
-          <button type="button" class="seg-btn" data-difficulty="beginner" aria-pressed="false">Beginner</button>
-          <button type="button" class="seg-btn is-active" data-difficulty="medium" aria-pressed="true">Medium</button>
-          <button type="button" class="seg-btn" data-difficulty="hard" aria-pressed="false">Hard</button>
+          <button type="button" class="seg-btn" data-difficulty="beginner" aria-pressed="false">초급</button>
+          <button type="button" class="seg-btn is-active" data-difficulty="medium" aria-pressed="true">중급</button>
+          <button type="button" class="seg-btn" data-difficulty="hard" aria-pressed="false">고급</button>
         </div>
       </div>
 
       <div class="control-row control-row--action" id="game-actions">
-        <button type="button" id="new-game" class="btn-primary" disabled>New Game</button>
-        <button type="button" id="setup-open" class="btn-secondary" disabled>Set up board</button>
+        <button type="button" id="new-game" class="btn-primary" disabled>새 게임</button>
+        <button type="button" id="setup-open" class="btn-secondary" disabled>보드 세팅</button>
       </div>
 
       <p id="pending-note" class="pending-note" hidden></p>
     </section>
 
-    <section class="board-area" data-area="board" aria-label="Chess board">
+    <section class="board-area" data-area="board" aria-label="체스판">
       <!-- The user's army is ALWAYS rendered on the top half of the board,
            Stockfish's army ALWAYS on the bottom half. See board.js. -->
-      <p class="side-tag side-tag--user"><span id="user-tag">USER · White</span></p>
+      <p class="side-tag side-tag--user"><span id="user-tag">나 · 백</span></p>
 
       <div class="board-frame">
-        <div id="board" class="board" role="grid" aria-label="Chess board, your pieces are at the top"></div>
+        <div id="board" class="board" role="grid" aria-label="체스판, 내 기물은 위쪽에 있습니다"></div>
 
-        <div id="promotion" class="promotion" hidden role="dialog" aria-modal="true" aria-label="Choose promotion piece">
+        <div id="promotion" class="promotion" hidden role="dialog" aria-modal="true" aria-label="프로모션 기물 선택">
           <div class="promotion-card">
-            <p class="promotion-title">Promote to</p>
+            <p class="promotion-title">프로모션</p>
             <div class="promotion-options" id="promotion-options"></div>
-            <button type="button" class="promotion-cancel" id="promotion-cancel">Cancel</button>
+            <button type="button" class="promotion-cancel" id="promotion-cancel">취소</button>
           </div>
         </div>
       </div>
 
-      <p class="side-tag side-tag--engine"><span id="engine-tag">STOCKFISH · Black</span></p>
+      <p class="side-tag side-tag--engine"><span id="engine-tag">STOCKFISH · 흑</span></p>
     </section>
 
-    <section id="setup" class="panel setup" data-area="setup" hidden aria-label="Board setup">
-      <h2 class="panel-title">Board setup</h2>
-      <p class="setup-hint">Pick a piece, then tap squares to place it. Tap the same piece again or right-click to remove.</p>
+    <section id="setup" class="panel setup" data-area="setup" hidden aria-label="보드 세팅">
+      <h2 class="panel-title">보드 세팅</h2>
+      <p class="setup-hint">기물을 고른 뒤 칸을 탭하면 놓입니다. 같은 기물을 다시 탭하거나 우클릭하면 지워집니다.</p>
 
-      <div class="setup-palette" id="setup-palette" role="group" aria-label="Piece palette"></div>
+      <div class="setup-palette" id="setup-palette" role="group" aria-label="기물 팔레트"></div>
 
       <div class="control-row">
-        <span class="control-label" id="setup-turn-label">To move</span>
+        <span class="control-label" id="setup-turn-label">먼저 둘 쪽</span>
         <div class="segmented" id="setup-turn" role="group" aria-labelledby="setup-turn-label">
-          <button type="button" class="seg-btn is-active" data-turn="w" aria-pressed="true">White</button>
-          <button type="button" class="seg-btn" data-turn="b" aria-pressed="false">Black</button>
+          <button type="button" class="seg-btn is-active" data-turn="w" aria-pressed="true">백</button>
+          <button type="button" class="seg-btn" data-turn="b" aria-pressed="false">흑</button>
         </div>
       </div>
 
       <fieldset class="setup-castling">
-        <legend class="control-label">Castling</legend>
+        <legend class="control-label">캐슬링</legend>
         <div id="setup-castling" class="check-grid"></div>
       </fieldset>
 
       <div class="setup-tools">
-        <button type="button" id="setup-standard" class="btn-secondary">Standard</button>
-        <button type="button" id="setup-clear" class="btn-secondary">Clear</button>
+        <button type="button" id="setup-standard" class="btn-secondary">초기 배치</button>
+        <button type="button" id="setup-clear" class="btn-secondary">비우기</button>
       </div>
 
       <div class="setup-fen">
         <label class="control-label" for="setup-fen">FEN</label>
         <div class="fen-row">
           <input id="setup-fen" class="fen-input mono" type="text" spellcheck="false" autocomplete="off" />
-          <button type="button" id="setup-fen-load" class="btn-secondary">Load</button>
+          <button type="button" id="setup-fen-load" class="btn-secondary">불러오기</button>
         </div>
       </div>
 
       <p id="setup-message" class="setup-message" role="status" aria-live="polite"></p>
 
       <div class="control-row control-row--action">
-        <button type="button" id="setup-start" class="btn-primary">Start from this position</button>
-        <button type="button" id="setup-cancel" class="btn-secondary">Cancel</button>
+        <button type="button" id="setup-start" class="btn-primary">이 포지션으로 시작</button>
+        <button type="button" id="setup-cancel" class="btn-secondary">취소</button>
       </div>
     </section>
 
-    <section class="panel info" data-area="info" aria-label="Game state">
+    <section class="panel info" data-area="info" aria-label="게임 상태">
       <dl class="info-grid">
         <div class="info-item">
-          <dt>Turn</dt>
-          <dd id="turn-value">White</dd>
+          <dt>차례</dt>
+          <dd id="turn-value">백</dd>
         </div>
         <div class="info-item">
-          <dt>Engine</dt>
+          <dt>엔진</dt>
           <dd id="engine-value">로딩 중...</dd>
         </div>
         <div class="info-item">
-          <dt>Start</dt>
-          <dd id="start-value">Standard</dd>
+          <dt>시작 포지션</dt>
+          <dd id="start-value">초기 배치</dd>
         </div>
         <div class="info-item">
-          <dt>Result</dt>
+          <dt>결과</dt>
           <dd id="result-value">&mdash;</dd>
         </div>
       </dl>
     </section>
 
-    <section class="panel moves" data-area="moves" aria-label="Move history">
-      <h2 class="panel-title">Moves</h2>
+    <section class="panel moves" data-area="moves" aria-label="기보">
+      <h2 class="panel-title">기보</h2>
       <ol id="move-list" class="move-list" aria-live="polite"></ol>
-      <p id="move-empty" class="move-empty">No moves yet.</p>
+      <p id="move-empty" class="move-empty">아직 둔 수가 없습니다.</p>
     </section>
 
     <footer class="app-footer">
       <p>
-        Stockfish 18 (GPL-3.0) runs entirely in your browser as WebAssembly inside a Web Worker.
-        Rules by <span class="mono">chess.js</span> (BSD-2-Clause). No backend, no engine API calls.
+        Stockfish 18(GPL-3.0)은 Web Worker 안에서 WebAssembly로 브라우저에서만 실행됩니다.
+        규칙 처리는 <span class="mono">chess.js</span>(BSD-2-Clause). 백엔드도, 엔진 API 호출도 없습니다.
       </p>
     </footer>
 
@@ -141,7 +141,7 @@
 
   <script type="module" src="js/app.js"></script>
   <noscript>
-    <p style="padding:1rem;text-align:center">This chess simulator requires JavaScript and WebAssembly.</p>
+    <p style="padding:1rem;text-align:center">이 체스 시뮬레이터는 JavaScript와 WebAssembly가 필요합니다.</p>
   </noscript>
 </body>
 </html>

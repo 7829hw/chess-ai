@@ -34,7 +34,7 @@ const check = (name, pass, detail = '') => {
 
   // Engine boots, first game auto-starts with the user as White.
   await page.waitForFunction(
-    () => document.getElementById('status-banner').textContent.includes('Your move'),
+    () => document.getElementById('status-banner').textContent.includes('내 차례'),
     null, { timeout: 180000 });
   check('engine reached ready + player turn', true, await banner());
 
@@ -66,7 +66,7 @@ const check = (name, pass, detail = '') => {
   const afterFirst = await moves();
   check('user move recorded as e4', afterFirst[0] === 'e4', afterFirst.join(' '));
   check('Stockfish replied with a move', Boolean(afterFirst[1]), afterFirst.join(' '));
-  check('back to player turn', /Your move|Check!/.test(await banner()), await banner());
+  check('back to player turn', /내 차례|체크!/.test(await banner()), await banner());
   const lastMoveSquares = await page.$$eval('.square--last', (els) => els.map((e) => e.dataset.square));
   check('last move highlighted', lastMoveSquares.length === 2, lastMoveSquares.join(','));
 
@@ -100,7 +100,7 @@ const check = (name, pass, detail = '') => {
   await page.click('#new-game');
   await page.waitForFunction(
     () => document.querySelectorAll('#move-list .move-san').length === 1
-       && document.getElementById('status-banner').textContent.includes('Your move'),
+       && document.getElementById('status-banner').textContent.includes('내 차례'),
     null, { timeout: 60000 });
 
   grid = await layout();
@@ -120,8 +120,8 @@ const check = (name, pass, detail = '') => {
     topRowB.every((c) => !c.piece || c.piece[0] === 'b'));
   check('black-user: Stockfish moved first', (await moves()).length === 1, (await moves()).join(' '));
   check('tags swapped',
-    (await page.$eval('#user-tag', (e) => e.textContent)).includes('Black')
-    && (await page.$eval('#engine-tag', (e) => e.textContent)).includes('White'));
+    (await page.$eval('#user-tag', (e) => e.textContent)).includes('흑')
+    && (await page.$eval('#engine-tag', (e) => e.textContent)).includes('백'));
   check('move list reset to a single move', (await moves()).length === 1);
 
   await page.screenshot({ path: `${OUT}/04-black-user.png` });
@@ -138,7 +138,7 @@ const check = (name, pass, detail = '') => {
   check('difficulty switch reflected in UI',
     (await page.$eval('button[data-difficulty="hard"]', (e) => e.classList.contains('is-active'))));
   check('engine status mentions difficulty',
-    /Hard/.test(await page.$eval('#engine-value', (e) => e.textContent)),
+    /고급/.test(await page.$eval('#engine-value', (e) => e.textContent)),
     await page.$eval('#engine-value', (e) => e.textContent));
 
   // ---- exactly one worker across three games ----
@@ -153,7 +153,7 @@ const check = (name, pass, detail = '') => {
   check('game actions hidden during setup', await page.$eval('#game-actions', (e) => e.hidden));
   await page.click('button[data-side="w"]');
   check('side change during setup does not start a game',
-    await page.$eval('#setup', (e) => !e.hidden) && /setup/i.test(await banner()), await banner());
+    await page.$eval('#setup', (e) => !e.hidden) && /보드 세팅/.test(await banner()), await banner());
 
   check('setup previews the chosen side on top', (await layout())[0].sq === 'h1', (await layout())[0].sq);
   await page.click('#setup-clear');
@@ -176,16 +176,16 @@ const check = (name, pass, detail = '') => {
 
   await page.click('#setup-start');
   await page.waitForFunction(
-    () => document.getElementById('status-banner').textContent.includes('Your move'), null, { timeout: 60000 });
+    () => document.getElementById('status-banner').textContent.includes('내 차례'), null, { timeout: 60000 });
   check('setup closes after start', await page.$eval('#setup', (e) => e.hidden));
   check('start value reports a custom position',
-    (await page.$eval('#start-value', (e) => e.textContent)) === 'Custom position');
+    (await page.$eval('#start-value', (e) => e.textContent)) === '사용자 지정');
   await page.click('[data-square="a1"]');
   await page.click('[data-square="a8"]');
   await page.waitForFunction(
-    () => document.getElementById('result-value').textContent.includes('win'), null, { timeout: 30000 });
+    () => document.getElementById('result-value').textContent.includes('승리'), null, { timeout: 30000 });
   check('mate from the custom position is detected',
-    /You win/.test(await page.$eval('#result-value', (e) => e.textContent)),
+    /나의 승리/.test(await page.$eval('#result-value', (e) => e.textContent)),
     await page.$eval('#result-value', (e) => e.textContent));
 
   // ---- board setup: Stockfish to move in the custom position ----
@@ -195,7 +195,7 @@ const check = (name, pass, detail = '') => {
   await page.click('#setup-start');
   await page.waitForFunction(
     () => document.querySelectorAll('#move-list .move-san:not(.move-san--gap)').length === 1
-       && document.getElementById('status-banner').textContent.includes('Your move'),
+       && document.getElementById('status-banner').textContent.includes('내 차례'),
     null, { timeout: 60000 });
   const blackFirst = await moves();
   check('Stockfish opens as Black from the custom position',
@@ -212,13 +212,13 @@ const check = (name, pass, detail = '') => {
   check('cancel restores the game position',
     (await layout()).filter((c) => c.piece).length === 4 && (await moves()).join(' ') === beforeCancel.join(' '),
     (await moves()).join(' '));
-  check('cancel returns to the player turn', /Your move/.test(await banner()), await banner());
+  check('cancel returns to the player turn', /내 차례/.test(await banner()), await banner());
 
   // ---- mobile viewport ----
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   await mobile.goto(BASE, { waitUntil: 'domcontentloaded' });
   await mobile.waitForFunction(
-    () => document.getElementById('status-banner').textContent.includes('Your move'),
+    () => document.getElementById('status-banner').textContent.includes('내 차례'),
     null, { timeout: 180000 });
   const overflow = await mobile.evaluate(() => ({
     docW: document.documentElement.scrollWidth,

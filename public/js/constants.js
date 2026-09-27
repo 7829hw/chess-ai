@@ -30,9 +30,9 @@ export const STATE = Object.freeze({
  * (Stockfish stops at whichever limit is hit first).
  */
 export const DIFFICULTIES = Object.freeze({
-  beginner: Object.freeze({ id: 'beginner', label: 'Beginner', skillLevel: 1, depth: 5, movetime: 300 }),
-  medium: Object.freeze({ id: 'medium', label: 'Medium', skillLevel: 8, depth: 11, movetime: 800 }),
-  hard: Object.freeze({ id: 'hard', label: 'Hard', skillLevel: 20, depth: 16, movetime: 2000 }),
+  beginner: Object.freeze({ id: 'beginner', label: '초급', skillLevel: 1, depth: 5, movetime: 300 }),
+  medium: Object.freeze({ id: 'medium', label: '중급', skillLevel: 8, depth: 11, movetime: 800 }),
+  hard: Object.freeze({ id: 'hard', label: '고급', skillLevel: 20, depth: 16, movetime: 2000 }),
 });
 
 export const DEFAULT_DIFFICULTY = 'medium';
@@ -66,10 +66,10 @@ export const PROMOTION_PIECES = Object.freeze(['q', 'r', 'b', 'n']);
  */
 
 export const PIECE_NAMES = Object.freeze({
-  k: 'King', q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight', p: 'Pawn',
+  k: '킹', q: '퀸', r: '룩', b: '비숍', n: '나이트', p: '폰',
 });
 
-export const COLOR_NAMES = Object.freeze({ w: 'White', b: 'Black' });
+export const COLOR_NAMES = Object.freeze({ w: '백', b: '흑' });
 
 /** @param {'w'|'b'} color */
 export function oppositeColor(color) {

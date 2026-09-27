@@ -17,10 +17,10 @@ const EMPTY_POSITION = '8/8/8/8/8/8/8/8 w - - 0 1';
 
 /** Castling right -> label and the squares that make it possible. */
 const CASTLING = Object.freeze([
-  { right: 'K', label: 'White O-O', color: WHITE, king: 'e1', rook: 'h1' },
-  { right: 'Q', label: 'White O-O-O', color: WHITE, king: 'e1', rook: 'a1' },
-  { right: 'k', label: 'Black O-O', color: BLACK, king: 'e8', rook: 'h8' },
-  { right: 'q', label: 'Black O-O-O', color: BLACK, king: 'e8', rook: 'a8' },
+  { right: 'K', label: '백 O-O', color: WHITE, king: 'e1', rook: 'h1' },
+  { right: 'Q', label: '백 O-O-O', color: WHITE, king: 'e1', rook: 'a1' },
+  { right: 'k', label: '흑 O-O', color: BLACK, king: 'e8', rook: 'h8' },
+  { right: 'q', label: '흑 O-O-O', color: BLACK, king: 'e8', rook: 'a8' },
 ]);
 
 export class PositionEditor {
@@ -108,8 +108,8 @@ export class PositionEditor {
     eraser.type = 'button';
     eraser.className = 'palette-btn palette-btn--eraser';
     eraser.dataset.tool = ERASER;
-    eraser.title = 'Eraser';
-    eraser.setAttribute('aria-label', 'Eraser');
+    eraser.title = '지우개';
+    eraser.setAttribute('aria-label', '지우개');
     eraser.textContent = '✕';
     buttons.push(eraser);
 
@@ -166,7 +166,7 @@ export class PositionEditor {
 
     const applyFenInput = () => {
       if (!this.#loadFen(dom.fenInput.value)) {
-        this.#showMessage('Could not read that FEN.', false);
+        this.#showMessage('FEN을 읽을 수 없습니다.', false);
         return;
       }
       this.#render();
@@ -199,7 +199,7 @@ export class PositionEditor {
         // Tapping the same piece again removes it.
         this.#pieces.delete(square);
       } else if (type === 'p' && (square[1] === '1' || square[1] === '8')) {
-        this.#showMessage('Pawns cannot stand on the first or last rank.', false);
+        this.#showMessage('폰은 1랭크나 8랭크에 놓을 수 없습니다.', false);
         return;
       } else {
         // Only one king per side: placing it again moves it.
@@ -257,7 +257,7 @@ export class PositionEditor {
 
     this.#check = normalizePosition(fen);
     this.#dom.start.disabled = !this.#check.ok;
-    this.#showMessage(this.#check.ok ? 'Position is legal. Ready to start.' : this.#check.error, this.#check.ok);
+    this.#showMessage(this.#check.ok ? '올바른 포지션입니다. 시작할 수 있습니다.' : this.#check.error, this.#check.ok);
   }
 
   #renderPalette() {
