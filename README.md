@@ -80,7 +80,11 @@ chess-ai/
     │   └── chess.LICENSE.txt
     ├── fonts/
     │   ├── noto-sans-symbols-2-chess.woff2      # 체스 글리프 12자만 서브셋 (2.8 KB)
-    │   └── noto-sans-symbols-2.LICENSE.txt
+    │   ├── noto-sans-symbols-2.LICENSE.txt
+    │   ├── ibm-plex-sans-kr-1.1.0-{400,600,700}.woff2  # UI 글꼴, 한글 11,172자 전체 (각 370–440 KB)
+    │   ├── ibm-plex-sans-kr.LICENSE.txt
+    │   ├── jetbrains-mono-5.3.0-latin-{400,600}.woff2  # 기보·FEN용 고정폭 (각 21 KB)
+    │   └── jetbrains-mono.LICENSE.txt
     └── stockfish/
         ├── stockfish-18-lite-single.js          # Worker 스크립트 (21 KB)
         ├── stockfish-18-lite-single.wasm        # 엔진 바이너리 (7.3 MB)
@@ -237,6 +241,8 @@ Stockfish에는 `position fen <FEN> moves ...`로 전달됩니다.
 | [chess.js](https://github.com/jhlywa/chess.js) | 1.4.0 (ESM) | BSD-2-Clause | 합법 수 생성, 체크/메이트/스테일메이트/캐슬링/앙파상/프로모션/반복수 판정, SAN·FEN |
 | [stockfish.js](https://github.com/nmrugg/stockfish.js) | 18.0.8 (`lite-single`) | **GPL-3.0** | 체스 엔진 (WASM) |
 | [Noto Sans Symbols 2](https://github.com/notofonts/symbols) | 서브셋 | SIL OFL 1.1 | 체스 기물 글리프 (U+2654–U+265F) |
+| [IBM Plex Sans KR](https://github.com/IBM/plex) | 1.1.0 | SIL OFL 1.1 | UI 글꼴 (400/600/700, 원본 파일 그대로) |
+| [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) | Fontsource 5.3.0, Latin | SIL OFL 1.1 | 기보·FEN 고정폭 글꼴 |
 
 보드 UI 라이브러리는 쓰지 않았습니다. orientation 반전 요구사항을 정확히
 제어하기 위해 `board.js`에 직접 구현했습니다. **CDN 의존성은 0개**이며
@@ -266,8 +272,9 @@ Stockfish에는 `position fen <FEN> moves ...`로 전달됩니다.
 색은 전부 `style.css`의 CSS 변수(토큰)로 정의되어 있고, `<html data-theme="light|dark">`가
 있으면 그 테마로 고정, 없으면 OS 설정을 따릅니다. 저장된 선택은 `index.html`의 작은 인라인
 스크립트가 첫 렌더링 전에 적용하므로 새로고침할 때 반대 테마가 번쩍이지 않습니다.
-UI 글꼴은 웹폰트를 내려받지 않고 시스템 한글 산세리프(IBM Plex Sans KR, Pretendard,
-Apple SD Gothic Neo, 맑은 고딕 등 설치된 것)를 씁니다.
+UI 글꼴(IBM Plex Sans KR, JetBrains Mono)도 체스 글리프처럼 `public/fonts/`에 self-host 하므로
+기기와 상관없이 같은 모양으로 보입니다. 파일명에 버전을 넣은 이유는 nginx가 `.woff2`를
+`immutable`로 캐시하기 때문입니다. 글꼴을 교체할 때는 파일명의 버전도 바꾸세요.
 
 ### Stockfish 라이선스 참고사항
 
