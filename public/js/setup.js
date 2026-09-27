@@ -1,14 +1,15 @@
 /**
  * Position editor.
  *
- * Lets the user arrange any starting position on the real board: pick a piece
- * (or the eraser) from the palette, then tap squares. Side to move, castling
+ * Lets the user arrange any starting position on the real board: drag pieces
+ * from the palette onto squares (or pick one, then tap squares), drag pieces
+ * around the board, and drag them off it to remove them. Side to move, castling
  * rights and a FEN field complete the setup. The editor keeps its own piece
  * map and only hands a validated FEN to `onStart`; rule checks live in
  * position.js.
  */
 
-import { COLOR_NAMES, FILES, PIECE_NAMES, WHITE, BLACK } from './constants.js';
+import { COLOR_NAMES, DRAG_THRESHOLD_PX, FILES, PIECE_NAMES, WHITE, BLACK } from './constants.js';
 import { DEFAULT_POSITION, normalizePosition } from './position.js';
 
 const PALETTE_TYPES = Object.freeze(['k', 'q', 'r', 'b', 'n', 'p']);
@@ -40,6 +41,8 @@ export class PositionEditor {
   #open = false;
   /** Result of validating the current setup. */
   #check = { ok: false, error: '' };
+  /** In-flight drag out of the palette. */
+  #paletteDrag = null;
 
   /**
    * @param {object} options
@@ -70,7 +73,10 @@ export class PositionEditor {
     this.#loadFen(fen);
     this.#board.setLastMove(null, null);
     this.#board.setCheckSquare(null);
-    this.#board.setEditHandler((square, erase) => this.#editSquare(square, erase));
+    this.#board.setEditHandler({
+      onTap: (square, erase) => this.#editSquare(square, erase),
+      onDrop: (from, to) => this.#dropPiece(from, to),
+    });
     this.#render();
   }
 
@@ -78,6 +84,7 @@ export class PositionEditor {
     if (!this.#open) return;
     this.#open = false;
     this.#dom.root.hidden = true;
+    this.#endPaletteDrag();
     this.#board.setEditHandler(null);
   }
 
@@ -138,6 +145,7 @@ export class PositionEditor {
       this.#tool = button.dataset.tool;
       this.#renderPalette();
     });
+    this.#bindPaletteDrag();
 
     dom.turnGroup.addEventListener('click', (event) => {
       const button = event.target.closest('button[data-turn]');
@@ -185,6 +193,87 @@ export class PositionEditor {
     dom.cancel.addEventListener('click', () => this.#onCancel());
   }
 
+  /**
+   * Palette pieces can be dragged straight onto the board. The drag is
+   * tracked on the window so a fast move that leaves the palette before the
+   * threshold is crossed still counts; a press that never moves stays a plain
+   * click and just selects the piece.
+   */
+  #bindPaletteDrag() {
+    this.#dom.palette.addEventListener('pointerdown', (event) => {
+      if (!this.#open || event.button !== 0) return;
+      const button = event.target.closest('button[data-tool]');
+      if (!button || button.dataset.tool === ERASER) return;
+      this.#endPaletteDrag();
+
+      const drag = {
+        pointerId: event.pointerId,
+        tool: button.dataset.tool,
+        startX: event.clientX,
+        startY: event.clientY,
+        ghost: null,
+        size: 0,
+      };
+      const onMove = (e) => {
+        if (e.pointerId !== drag.pointerId) return;
+        if (!drag.ghost) {
+          if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_THRESHOLD_PX) return;
+          this.#beginPaletteDrag(drag);
+        }
+        e.preventDefault();
+        drag.ghost.style.left = `${e.clientX - drag.size / 2}px`;
+        drag.ghost.style.top = `${e.clientY - drag.size / 2}px`;
+        this.#board.setDropHover(this.#board.squareAt(e.clientX, e.clientY));
+      };
+      const onUp = (e) => {
+        if (e.pointerId !== drag.pointerId) return;
+        const square = drag.ghost ? this.#board.squareAt(e.clientX, e.clientY) : null;
+        this.#endPaletteDrag();
+        if (square && this.#place(square, drag.tool[0], drag.tool[1])) this.#render();
+      };
+      const onCancel = () => this.#endPaletteDrag();
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
+      drag.unbind = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
+      };
+      this.#paletteDrag = drag;
+    });
+  }
+
+  #beginPaletteDrag(drag) {
+    // Dragging a piece also selects it, so follow-up taps place the same piece.
+    this.#tool = drag.tool;
+    this.#renderPalette();
+
+    drag.size = this.#board.squareSize;
+    const ghost = document.createElement('span');
+    ghost.className = 'piece piece--dragging';
+    ghost.dataset.color = drag.tool[0];
+    ghost.dataset.type = drag.tool[1];
+    ghost.style.width = `${drag.size}px`;
+    ghost.style.height = `${drag.size}px`;
+    ghost.style.fontSize = `${drag.size * 0.86}px`;
+    document.body.append(ghost);
+    document.body.classList.add('is-dragging-piece');
+    drag.ghost = ghost;
+  }
+
+  #endPaletteDrag() {
+    const drag = this.#paletteDrag;
+    this.#paletteDrag = null;
+    if (!drag) return;
+    drag.unbind();
+    if (!drag.ghost) return;
+    drag.ghost.remove();
+    document.body.classList.remove('is-dragging-piece');
+    this.#board.setDropHover(null);
+  }
+
   // ------------------------------------------------------------------- editing
 
   #editSquare(square, erase) {
@@ -198,21 +287,41 @@ export class PositionEditor {
       if (current && current.color === color && current.type === type) {
         // Tapping the same piece again removes it.
         this.#pieces.delete(square);
-      } else if (type === 'p' && (square[1] === '1' || square[1] === '8')) {
-        this.#showMessage('폰은 1랭크나 8랭크에 놓을 수 없습니다.', false);
+      } else if (!this.#place(square, color, type)) {
         return;
-      } else {
-        // Only one king per side: placing it again moves it.
-        if (type === 'k') {
-          for (const [sq, piece] of this.#pieces) {
-            if (piece.type === 'k' && piece.color === color) this.#pieces.delete(sq);
-          }
-        }
-        this.#pieces.set(square, { type, color });
       }
     }
 
     this.#render();
+  }
+
+  /** A piece dragged from `from` was dropped on `to` (null: off the board). */
+  #dropPiece(from, to) {
+    const piece = this.#pieces.get(from);
+    if (!piece) return;
+    if (to && !this.#place(to, piece.color, piece.type)) return;
+    // Placing a king already removed it from its old square.
+    if (this.#pieces.get(from) === piece) this.#pieces.delete(from);
+    this.#render();
+  }
+
+  /**
+   * Puts a piece on a square, replacing whatever stood there.
+   * @returns {boolean} false (with a message) when the placement is refused
+   */
+  #place(square, color, type) {
+    if (type === 'p' && (square[1] === '1' || square[1] === '8')) {
+      this.#showMessage('폰은 1랭크나 8랭크에 놓을 수 없습니다.', false);
+      return false;
+    }
+    // Only one king per side: placing it again moves it.
+    if (type === 'k') {
+      for (const [sq, piece] of this.#pieces) {
+        if (piece.type === 'k' && piece.color === color) this.#pieces.delete(sq);
+      }
+    }
+    this.#pieces.set(square, { type, color });
+    return true;
   }
 
   /**

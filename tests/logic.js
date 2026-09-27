@@ -476,7 +476,9 @@ const OUT = process.env.OUT || '/work/out';
 
       const tap = (square, button = 0) => {
         const el = h.root.querySelector(`[data-square="${square}"]`);
-        el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button, pointerType: 'mouse', pointerId: 1 }));
+        const init = { bubbles: true, button, pointerType: 'mouse', pointerId: 1 };
+        el.dispatchEvent(new PointerEvent('pointerdown', init));
+        el.dispatchEvent(new PointerEvent('pointerup', init));
       };
       const pick = (tool) => q('t-palette').querySelector(`[data-tool="${tool}"]`).click();
 

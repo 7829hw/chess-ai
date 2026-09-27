@@ -47,10 +47,13 @@ export class ChessBoard {
   #checkSquare = null;
 
   /**
-   * Set while the position editor owns the board: every press is reported as
-   * a square edit instead of a move. @type {((square: string, erase: boolean) => void) | null}
+   * Set while the position editor owns the board: presses are reported as
+   * square edits and piece drags as relocations instead of moves.
+   * @type {EditHandlers | null}
    */
-  #onSquareEdit = null;
+  #edit = null;
+  /** Square highlighted as the current drop target. @type {string|null} */
+  #dropHover = null;
 
   /** In-flight pointer interaction. */
   #press = null;
@@ -95,16 +98,38 @@ export class ChessBoard {
   }
 
   /**
-   * Switches the board into (or out of) position-editing mode. While a handler
-   * is set, a primary press reports `(square, false)` and a secondary press
-   * (right click) reports `(square, true)`, regardless of `setInteractive`.
-   * @param {((square: string, erase: boolean) => void) | null} handler
+   * Switches the board into (or out of) position-editing mode, regardless of
+   * `setInteractive`. A primary tap reports `onTap(square, false)`, a right
+   * click `onTap(square, true)`, and dragging a piece reports
+   * `onDrop(from, to)` -- `to` is null when it was dropped off the board.
+   *
+   * @typedef {{ onTap: (square: string, erase: boolean) => void,
+   *             onDrop: (from: string, to: string|null) => void }} EditHandlers
+   * @param {EditHandlers | null} handlers
    */
-  setEditHandler(handler) {
-    this.#onSquareEdit = handler ?? null;
+  setEditHandler(handlers) {
+    this.#edit = handlers ?? null;
     this.#cancelPointerInteraction();
     this.clearSelection();
-    this.#root.classList.toggle('board--editing', Boolean(this.#onSquareEdit));
+    this.#root.classList.toggle('board--editing', Boolean(this.#edit));
+  }
+
+  /** @returns {string|null} The square under a viewport point, if any. */
+  squareAt(clientX, clientY) {
+    return this.#squareFromPoint(clientX, clientY);
+  }
+
+  /** Width of one square in CSS pixels. */
+  get squareSize() {
+    return this.#root.getBoundingClientRect().width / BOARD_SIZE;
+  }
+
+  /** @param {string|null} square Square to outline as the drop target. */
+  setDropHover(square) {
+    if (this.#dropHover === square) return;
+    if (this.#dropHover) this.#squares.get(this.#dropHover)?.classList.remove('square--drop');
+    this.#dropHover = square ?? null;
+    if (this.#dropHover) this.#squares.get(this.#dropHover)?.classList.add('square--drop');
   }
 
   /**
@@ -258,7 +283,7 @@ export class ChessBoard {
     // Suppress the native image/text drag so our pointer drag is the only one.
     this.#root.addEventListener('dragstart', (event) => event.preventDefault());
     this.#root.addEventListener('contextmenu', (event) => {
-      if (this.#drag || this.#onSquareEdit) event.preventDefault();
+      if (this.#drag || this.#edit) event.preventDefault();
     });
   }
 
@@ -273,10 +298,23 @@ export class ChessBoard {
   }
 
   #onPointerDown(event) {
-    if (this.#onSquareEdit) {
+    if (this.#edit) {
       const square = this.#squareFromEvent(event);
-      const erase = event.pointerType === 'mouse' && event.button === 2;
-      if (square && (event.button === 0 || erase)) this.#onSquareEdit(square, erase);
+      if (!square) return;
+      if (event.pointerType === 'mouse' && event.button === 2) {
+        this.#edit.onTap(square, true);
+        return;
+      }
+      if (event.button !== 0) return;
+      // Decided on release: a tap edits the square, a drag relocates the piece.
+      this.#press = {
+        pointerId: event.pointerId,
+        square,
+        startX: event.clientX,
+        startY: event.clientY,
+        movable: Boolean(this.#squares.get(square).dataset.piece),
+        edit: true,
+      };
       return;
     }
 
@@ -320,6 +358,7 @@ export class ChessBoard {
     if (this.#drag) {
       event.preventDefault();
       this.#moveDragged(event.clientX, event.clientY);
+      if (press.edit) this.setDropHover(this.#squareFromPoint(event.clientX, event.clientY));
     }
   }
 
@@ -327,6 +366,17 @@ export class ChessBoard {
     const press = this.#press;
     if (!press || press.pointerId !== event.pointerId) return;
     this.#press = null;
+
+    if (press.edit) {
+      if (!this.#drag) {
+        this.#edit.onTap(press.square, false);
+        return;
+      }
+      const dropSquare = this.#squareFromPoint(event.clientX, event.clientY);
+      this.#endDrag();
+      if (dropSquare !== press.square) this.#edit.onDrop(press.square, dropSquare);
+      return;
+    }
 
     if (this.#drag) {
       const dropSquare = this.#squareFromPoint(event.clientX, event.clientY);
@@ -403,6 +453,7 @@ export class ChessBoard {
     drag.glyph.style.removeProperty('width');
     drag.glyph.style.removeProperty('height');
     this.#root.classList.remove('board--dragging');
+    this.setDropHover(null);
 
     if (drag.capturedPointerId !== undefined) {
       try {

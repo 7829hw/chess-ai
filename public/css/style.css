@@ -551,6 +551,7 @@ button { font: inherit; }
 
 .board--locked { cursor: default; }
 .board--dragging { cursor: grabbing; }
+.board--editing .square[data-piece] { cursor: grab; }
 
 .square {
   position: relative;
@@ -594,6 +595,15 @@ button { font: inherit; }
 
 .square--last::after     { background: var(--sq-last); }
 .square--selected::after { background: var(--sq-select); }
+
+/* Drop target while dragging a piece in the position editor. */
+.square--drop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 3px var(--accent);
+  pointer-events: none;
+}
 
 .square--check::after {
   content: "";
@@ -826,6 +836,12 @@ button { font: inherit; }
 .palette-btn:nth-child(n + 7):not(.palette-btn--eraser) { grid-row: 2; background: var(--sq-dark); }
 
 .palette-btn .piece { font-size: clamp(1.4rem, 6vw, 1.9rem); }
+
+/* Palette pieces can be dragged onto the board, so touch must not scroll. */
+.palette-btn:not(.palette-btn--eraser) { touch-action: none; cursor: grab; }
+
+body.is-dragging-piece,
+body.is-dragging-piece * { cursor: grabbing !important; }
 
 .palette-btn--eraser {
   grid-column: 7;

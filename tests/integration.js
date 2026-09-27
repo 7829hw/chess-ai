@@ -161,8 +161,30 @@ const check = (name, pass, detail = '') => {
     await page.click(`#setup-palette [data-tool="${tool}"]`);
     for (const sq of squares) await page.click(`[data-square="${sq}"]`);
   };
-  await place('wk', ['g1']);
-  await place('wr', ['a1']);
+  const centre = async (selector) => {
+    const box = await page.locator(selector).boundingBox();
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const drag = async (fromSel, to) => {
+    const a = await centre(fromSel);
+    const b = typeof to === 'string' ? await centre(to) : to;
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 8 });
+    await page.mouse.up();
+  };
+  const pieceOn = (sq) => page.$eval(`[data-square="${sq}"]`, (e) => e.dataset.piece || null);
+  await drag('#setup-palette [data-tool="wk"]', '[data-square="g1"]');
+  check('drag from the palette places a piece', (await pieceOn('g1')) === 'wk', await pieceOn('g1'));
+  await drag('#setup-palette [data-tool="wr"]', '[data-square="c3"]');
+  await drag('[data-square="c3"]', '[data-square="a1"]');
+  check('dragging a board piece moves it',
+    (await pieceOn('a1')) === 'wr' && !(await pieceOn('c3')), `${await pieceOn('a1')} / ${await pieceOn('c3')}`);
+  await drag('#setup-palette [data-tool="bq"]', '[data-square="d4"]');
+  await drag('[data-square="d4"]', await centre('.setup-hint'));
+  check('dragging a piece off the board removes it', !(await pieceOn('d4')), await pieceOn('d4'));
+  await drag('#setup-palette [data-tool="wp"]', '[data-square="e8"]');
+  check('pawn dropped on the last rank is refused', !(await pieceOn('e8')), await pieceOn('e8'));
   await place('wp', ['f2', 'g2', 'h2']);
   await place('bk', ['g8']);
   await place('bp', ['f7', 'g7', 'h7', 'a7']);
