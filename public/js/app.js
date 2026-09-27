@@ -16,6 +16,7 @@ import { StockfishEngine } from './engine.js';
 import { GameController } from './game.js';
 import { PromotionDialog } from './promotion.js';
 import { PositionEditor } from './setup.js';
+import { initThemeSwitcher } from './theme.js';
 
 const ENGINE_STATUS = Object.freeze({
   [STATE.LOADING]: 'Stockfish 엔진 로딩 중...',
@@ -46,6 +47,8 @@ const dom = {
   gameActions: byId('game-actions'),
   pendingNote: byId('pending-note'),
   board: byId('board'),
+  userCard: byId('user-card'),
+  engineCard: byId('engine-card'),
   userTag: byId('user-tag'),
   engineTag: byId('engine-tag'),
   turnValue: byId('turn-value'),
@@ -143,6 +146,10 @@ function render(game) {
 
   renderEngineStatus(game);
 
+  // The badge on each player card marks whose move it is.
+  dom.userCard.dataset.active = String(state === STATE.PLAYER_TURN);
+  dom.engineCard.dataset.active = String(state === STATE.ENGINE_THINKING);
+
   dom.startValue.textContent = game.isCustomStart ? '사용자 지정' : '초기 배치';
 
   dom.resultValue.textContent = game.result
@@ -204,9 +211,14 @@ function renderMoveList(history, startFen) {
   const [, startTurn, , , , startNumber] = startFen.split(' ');
   const offset = startTurn === 'b' ? 1 : 0;
 
+  const firstNumber = Number(startNumber) || 1;
   const rows = [];
   for (let i = -offset; i < history.length; i += 2) {
     const li = document.createElement('li');
+    const number = document.createElement('span');
+    number.className = 'move-num';
+    number.textContent = `${firstNumber + (i + offset) / 2}.`;
+    li.append(number);
     if (i < 0) {
       const gap = document.createElement('span');
       gap.className = 'move-san move-san--gap';
@@ -221,7 +233,7 @@ function renderMoveList(history, startFen) {
     rows.push(li);
   }
 
-  dom.moveList.start = Number(startNumber) || 1;
+  dom.moveList.start = firstNumber;
   dom.moveList.replaceChildren(...rows);
   dom.moveList.scrollTop = dom.moveList.scrollHeight;
 }
@@ -288,6 +300,8 @@ function startGame(fen) {
 }
 
 // ----------------------------------------------------------------- bootstrap
+
+initThemeSwitcher(byId('theme-group'));
 
 window.addEventListener('pagehide', () => engine.dispose(), { once: true });
 

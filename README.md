@@ -72,6 +72,7 @@ chess-ai/
     │   ├── promotion.js             # 프로모션 선택 모달
     │   ├── position.js              # 사용자 지정 시작 포지션 검증/정규화
     │   ├── setup.js                 # 보드 세팅 편집기 (팔레트, 차례, 캐슬링, FEN)
+    │   ├── theme.js                 # 라이트/다크/시스템 테마 전환
     │   └── app.js                   # DOM 바인딩과 부트스트랩
     ├── lib/
     │   ├── chess.js                 # chess.js 1.4.0 (ESM 빌드)
@@ -254,6 +255,19 @@ Stockfish에는 `position fen <FEN> moves ...`로 전달됩니다.
 공유하므로 정확히 겹칩니다. 시스템 심볼 폰트에 의존하면 플랫폼마다 기물 모양이
 달라지므로, 해당 12자만 남긴 **2.8 KB 서브셋 폰트를 self-host** 하고
 `font-display: block`으로 대체 글리프가 순간 노출되는 것도 막았습니다.
+
+### 테마 (라이트 / 다크 / 시스템)
+
+상단 오른쪽의 세 버튼으로 테마를 고릅니다.
+
+- **시스템**(기본값): OS의 `prefers-color-scheme`을 따르고, OS 설정이 바뀌면 바로 반영됩니다.
+- **라이트 / 다크**: 선택이 `localStorage`의 `chess-theme` 키에 저장되어 다음 방문에도 유지됩니다.
+
+색은 전부 `style.css`의 CSS 변수(토큰)로 정의되어 있고, `<html data-theme="light|dark">`가
+있으면 그 테마로 고정, 없으면 OS 설정을 따릅니다. 저장된 선택은 `index.html`의 작은 인라인
+스크립트가 첫 렌더링 전에 적용하므로 새로고침할 때 반대 테마가 번쩍이지 않습니다.
+UI 글꼴은 웹폰트를 내려받지 않고 시스템 한글 산세리프(IBM Plex Sans KR, Pretendard,
+Apple SD Gothic Neo, 맑은 고딕 등 설치된 것)를 씁니다.
 
 ### Stockfish 라이선스 참고사항
 
