@@ -209,6 +209,19 @@ const check = (name, pass, detail = '') => {
   check('mate from the custom position is detected',
     /나의 승리/.test(await page.$eval('#result-value', (e) => e.textContent)),
     await page.$eval('#result-value', (e) => e.textContent));
+  await page.waitForSelector('#game-result:not([hidden])', { timeout: 5000 });
+  check('result card announces the win',
+    (await page.$eval('#game-result-title', (e) => e.textContent)) === '승리했습니다!'
+      && (await page.$eval('#game-result', (e) => e.dataset.outcome)) === 'win',
+    await page.$eval('#game-result-title', (e) => e.textContent));
+  check('banner and cards take the outcome tone',
+    (await page.$eval('#status-banner', (e) => e.dataset.tone)) === 'win'
+      && (await page.$eval('#user-badge', (e) => e.textContent)) === '승리'
+      && (await page.$eval('#engine-badge', (e) => e.textContent)) === '패배');
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/07b-result.png` });
+  await page.click('#game-result-close');
+  check('result card can be dismissed to view the board', await page.$eval('#game-result', (e) => e.hidden));
 
   // ---- board setup: Stockfish to move in the custom position ----
   await page.click('#setup-open');

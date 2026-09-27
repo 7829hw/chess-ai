@@ -407,11 +407,16 @@ export class GameController {
 
     let headline = '무승부';
     let detail = '무승부';
+    /** From the user's point of view. */
+    let outcome = 'draw';
+    let winner = null;
 
     if (this.#chess.isCheckmate()) {
       // The side to move is the one that got mated.
       const matedColor = this.#chess.turn();
-      headline = matedColor === this.#userColor ? 'Stockfish 승리' : '나의 승리';
+      winner = oppositeColor(matedColor);
+      outcome = winner === this.#userColor ? 'win' : 'loss';
+      headline = outcome === 'loss' ? 'Stockfish 승리' : '나의 승리';
       detail = `체크메이트 — ${COLOR_NAMES[matedColor]} 패배`;
     } else if (this.#chess.isStalemate()) {
       detail = '스테일메이트';
@@ -423,7 +428,7 @@ export class GameController {
       detail = '50수 규칙';
     }
 
-    this.#result = { headline, detail };
+    this.#result = { headline, detail, outcome, winner };
     this.#engine.cancelSearch();
     this.#setState(STATE.GAME_OVER);
     console.info('[game] over: %s (%s)', headline, detail);

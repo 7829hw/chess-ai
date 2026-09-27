@@ -166,6 +166,8 @@ const OUT = process.env.OUT || '/work/out';
       check('state is GAME_OVER', h.controller.state === STATE.GAME_OVER, h.controller.state);
       check('headline is "You win"', h.controller.result?.headline === '나의 승리', JSON.stringify(h.controller.result));
       check('detail mentions Checkmate', /체크메이트/.test(h.controller.result?.detail ?? ''), h.controller.result?.detail);
+      check('user win carries outcome + winner',
+        h.controller.result?.outcome === 'win' && h.controller.result?.winner === 'w', JSON.stringify(h.controller.result));
       check('board is locked after mate', h.root.classList.contains('board--locked'));
 
       // No further moves may be accepted, and the engine must not be asked again.
@@ -193,6 +195,8 @@ const OUT = process.env.OUT || '/work/out';
       check('Stockfish mate detected', h.controller.state === STATE.GAME_OVER, h.controller.state);
       check('headline is "Stockfish wins"', h.controller.result?.headline === 'Stockfish 승리',
         JSON.stringify(h.controller.result));
+      check('engine win is a loss for the user',
+        h.controller.result?.outcome === 'loss' && h.controller.result?.winner === 'w', JSON.stringify(h.controller.result));
     }
 
     // =========================================================== 8. stalemate
@@ -207,6 +211,8 @@ const OUT = process.env.OUT || '/work/out';
         JSON.stringify(h.controller.result));
       check('stalemate named in the detail', h.controller.result?.detail === '스테일메이트',
         h.controller.result?.detail);
+      check('draw has no winner',
+        h.controller.result?.outcome === 'draw' && h.controller.result?.winner === null, JSON.stringify(h.controller.result));
     }
 
     // ================================================ 9. threefold repetition

@@ -70,7 +70,7 @@
         <p class="player-name" id="user-tag">나 · 백</p>
         <p class="player-sub">판 위쪽</p>
       </div>
-      <span class="player-badge">내 차례</span>
+      <span class="player-badge" id="user-badge">내 차례</span>
     </section>
 
     <p id="pending-note" class="pending-note" hidden></p>
@@ -86,6 +86,20 @@
             <button type="button" class="promotion-cancel" id="promotion-cancel">취소</button>
           </div>
         </div>
+
+        <div id="game-result" class="game-result" hidden role="dialog" aria-modal="false" aria-labelledby="game-result-title">
+          <div class="game-result-card">
+            <span class="game-result-pieces" id="game-result-pieces" aria-hidden="true"></span>
+            <p class="game-result-eyebrow">게임 종료</p>
+            <h2 class="game-result-title" id="game-result-title"></h2>
+            <p class="game-result-detail" id="game-result-detail"></p>
+            <p class="game-result-meta" id="game-result-meta"></p>
+            <div class="game-result-actions">
+              <button type="button" id="game-result-new" class="btn-primary">새 게임</button>
+              <button type="button" id="game-result-close" class="btn-secondary">보드 보기</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -97,7 +111,7 @@
         <p class="player-name" id="engine-tag">STOCKFISH · 흑</p>
         <p class="player-sub" id="engine-value">로딩 중...</p>
       </div>
-      <span class="player-badge">생각 중…</span>
+      <span class="player-badge" id="engine-badge">생각 중…</span>
     </section>
 
     <section id="setup" class="card setup" hidden aria-label="보드 세팅">

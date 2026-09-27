@@ -33,7 +33,7 @@ const BANNER_TONE = Object.freeze({
   [STATE.READY]: 'ready',
   [STATE.PLAYER_TURN]: 'ready',
   [STATE.ENGINE_THINKING]: 'busy',
-  [STATE.GAME_OVER]: 'done',
+  [STATE.GAME_OVER]: 'done', // refined per outcome in render()
   [STATE.SETUP]: 'done',
   [STATE.ERROR]: 'error',
 });
@@ -50,6 +50,8 @@ const dom = {
   userCard: byId('user-card'),
   engineCard: byId('engine-card'),
   userTag: byId('user-tag'),
+  userBadge: byId('user-badge'),
+  engineBadge: byId('engine-badge'),
   engineTag: byId('engine-tag'),
   turnValue: byId('turn-value'),
   engineValue: byId('engine-value'),
@@ -60,7 +62,17 @@ const dom = {
   promotion: byId('promotion'),
   promotionOptions: byId('promotion-options'),
   promotionCancel: byId('promotion-cancel'),
+  result: byId('game-result'),
+  resultPieces: byId('game-result-pieces'),
+  resultTitle: byId('game-result-title'),
+  resultDetail: byId('game-result-detail'),
+  resultMeta: byId('game-result-meta'),
+  resultNew: byId('game-result-new'),
+  resultClose: byId('game-result-close'),
 };
+
+const OUTCOME_TITLE = Object.freeze({ win: '승리했습니다!', loss: '패배했습니다', draw: '무승부' });
+const OUTCOME_BADGE = Object.freeze({ win: '승리', loss: '패배', draw: '무승부' });
 
 /** Side chosen in the UI; only applied to the board on "New Game". */
 let selectedSide = DEFAULT_USER_COLOR;
@@ -68,6 +80,8 @@ let selectedSide = DEFAULT_USER_COLOR;
 let selectedDifficulty = DEFAULT_DIFFICULTY;
 /** Latest `info depth` reported by the running search. */
 let searchDepth = null;
+/** Result the overlay was last opened for, so dismissing it sticks. */
+let announcedResult = null;
 const engine = new StockfishEngine({
   onSearchInfo: ({ depth }) => {
     if (depth === undefined || depth === searchDepth) return;
@@ -133,7 +147,8 @@ function render(game) {
   if (state !== STATE.ENGINE_THINKING) searchDepth = null;
 
   dom.banner.textContent = bannerText(game);
-  dom.banner.dataset.tone = BANNER_TONE[state] ?? 'ready';
+  const outcome = state === STATE.GAME_OVER ? game.result?.outcome : undefined;
+  dom.banner.dataset.tone = outcome ?? BANNER_TONE[state] ?? 'ready';
 
   // During setup the tags (and board orientation) preview the chosen side.
   const userColor = state === STATE.SETUP ? selectedSide : game.userColor;
@@ -147,8 +162,14 @@ function render(game) {
   renderEngineStatus(game);
 
   // The badge on each player card marks whose move it is.
-  dom.userCard.dataset.active = String(state === STATE.PLAYER_TURN);
-  dom.engineCard.dataset.active = String(state === STATE.ENGINE_THINKING);
+  // Once the game is over the badges show who won instead.
+  dom.userCard.dataset.active = String(state === STATE.PLAYER_TURN || Boolean(outcome));
+  dom.engineCard.dataset.active = String(state === STATE.ENGINE_THINKING || Boolean(outcome));
+  const engineOutcome = { win: 'loss', loss: 'win', draw: 'draw' }[outcome];
+  setOutcome(dom.userCard, dom.userBadge, outcome, '내 차례');
+  setOutcome(dom.engineCard, dom.engineBadge, engineOutcome, '생각 중…');
+
+  renderResultOverlay(game);
 
   dom.startValue.textContent = game.isCustomStart ? '사용자 지정' : '초기 배치';
 
@@ -170,6 +191,51 @@ function render(game) {
   }
 
   renderMoveList(game.moveHistory, game.startFen);
+}
+
+function setOutcome(card, badge, outcome, idleText) {
+  if (outcome) card.dataset.outcome = outcome;
+  else card.removeAttribute('data-outcome');
+  badge.textContent = outcome ? OUTCOME_BADGE[outcome] : idleText;
+}
+
+/** Opens the result card once per finished game; hides it otherwise. */
+function renderResultOverlay(game) {
+  const result = game.state === STATE.GAME_OVER ? game.result : null;
+  if (!result) {
+    announcedResult = null;
+    dom.result.hidden = true;
+    return;
+  }
+  if (result === announcedResult) return;
+  announcedResult = result;
+
+  const { outcome, winner } = result;
+  dom.result.dataset.outcome = outcome;
+  dom.resultTitle.textContent = OUTCOME_TITLE[outcome];
+
+  if (winner) {
+    const who = outcome === 'win' ? '내가' : 'Stockfish가';
+    dom.resultDetail.textContent = `체크메이트 — ${who} ${COLOR_NAMES[winner]}으로 이겼습니다.`;
+  } else {
+    dom.resultDetail.textContent = `${result.detail}(으)로 비겼습니다.`;
+  }
+
+  const plies = game.moveHistory.length;
+  dom.resultMeta.textContent = `${Math.ceil(plies / 2)}수 · ${game.difficulty.label}`;
+
+  // The winner's king (both kings for a draw), drawn with the board's glyphs.
+  const kings = winner ? [winner] : ['w', 'b'];
+  dom.resultPieces.replaceChildren(...kings.map((color) => {
+    const glyph = document.createElement('span');
+    glyph.className = 'piece';
+    glyph.dataset.color = color;
+    glyph.dataset.type = 'k';
+    return glyph;
+  }));
+
+  dom.result.hidden = false;
+  dom.resultNew.focus({ preventScroll: true });
 }
 
 function bannerText(game) {
@@ -282,6 +348,11 @@ dom.difficultyGroup.addEventListener('click', (event) => {
 });
 
 dom.newGame.addEventListener('click', () => startGame());
+dom.resultNew.addEventListener('click', () => startGame());
+dom.resultClose.addEventListener('click', () => { dom.result.hidden = true; });
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !dom.result.hidden) dom.result.hidden = true;
+});
 
 dom.setupOpen.addEventListener('click', () => {
   promotionDialog.close(null);
