@@ -306,18 +306,6 @@ button { font: inherit; }
 .status-banner[data-tone="loss"]  { color: var(--bad); }
 .status-banner[data-tone="draw"]  { color: var(--dim); }
 
-.status-banner[data-tone="win"],
-.status-banner[data-tone="loss"],
-.status-banner[data-tone="draw"] {
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 700;
-  background: var(--surface-2);
-}
-.status-banner[data-tone="win"]  { background: var(--good-bg); }
-.status-banner[data-tone="loss"] { background: var(--bad-bg); }
-
 .status-banner[data-tone="loading"]::before,
 .status-banner[data-tone="busy"]::before {
   animation: pulse 1.1s ease-in-out infinite;
@@ -533,13 +521,10 @@ button { font: inherit; }
 .player--user .player-badge   { background: var(--good-bg); color: var(--good); }
 .player--engine .player-badge { background: var(--busy-bg); color: var(--busy); }
 
-/* After the game the badges announce the result. */
-.player[data-outcome] .player-badge { font-weight: 700; }
-.player[data-outcome="win"]  .player-badge { background: var(--good); color: var(--surface); }
-.player[data-outcome="loss"] .player-badge { background: var(--bad-bg); color: var(--bad); }
+/* After the game the badges announce the result, in the same tinted pills. */
+.player[data-outcome="win"]  .player-badge { background: var(--good-bg);   color: var(--good); }
+.player[data-outcome="loss"] .player-badge { background: var(--bad-bg);    color: var(--bad); }
 .player[data-outcome="draw"] .player-badge { background: var(--surface-2); color: var(--dim); }
-.player[data-outcome="win"]  { border-color: var(--good); box-shadow: 0 0 0 3px var(--good-bg); }
-.player[data-outcome="loss"] { opacity: 0.72; }
 
 /* --------------------------------------------------------------- the board */
 
@@ -816,6 +801,8 @@ button { font: inherit; }
 
 /* game result ---------------------------------------------------------------- */
 
+/* Built from the same parts as the player cards: a bordered surface, a
+   rounded-square tile, an ink title and a tinted pill for the outcome. */
 .game-result {
   position: absolute;
   inset: 0;
@@ -826,9 +813,9 @@ button { font: inherit; }
   padding: 1rem;
   border-radius: 12px;
   background: var(--overlay);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
   /* Let the final move land on the board before the card covers it. */
-  animation: result-fade 0.3s ease 0.45s both;
+  animation: result-fade 0.2s ease 0.45s both;
 }
 
 .game-result[hidden] { display: none; }
@@ -837,60 +824,74 @@ button { font: inherit; }
   --tone: var(--dim);
   --tone-bg: var(--surface-2);
   width: min(100%, 22rem);
-  padding: 22px 20px 18px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-top: 5px solid var(--tone);
   box-shadow: var(--shadow);
-  text-align: center;
-  animation: result-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.25) 0.45s both;
+  animation: result-rise 0.25s ease 0.45s both;
 }
 
 .game-result[data-outcome="win"]  .game-result-card { --tone: var(--good); --tone-bg: var(--good-bg); }
 .game-result[data-outcome="loss"] .game-result-card { --tone: var(--bad);  --tone-bg: var(--bad-bg); }
 
+.game-result-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .game-result-pieces {
+  flex: none;
   display: inline-flex;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
-  width: 76px;
-  height: 76px;
-  margin-bottom: 10px;
-  border-radius: 50%;
+  height: 52px;
+  padding: 0 8px;
+  min-width: 52px;
+  border-radius: var(--radius-sm);
   background: var(--tone-bg);
 }
 
-.game-result[data-outcome="draw"] .game-result-pieces { width: 110px; border-radius: 38px; }
+.game-result-pieces .piece { width: 36px; height: 52px; font-size: 36px; }
 
-.game-result-pieces .piece { width: 52px; height: 76px; font-size: 52px; }
+.game-result-heading {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
 
-.game-result-eyebrow {
+.game-result-meta {
   margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
   font-size: 12px;
+  color: var(--dim);
+}
+
+.game-result-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--tone-bg);
+  color: var(--tone);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--faint);
 }
 
 .game-result-title {
-  margin: 2px 0 6px;
-  font-size: 28px;
+  margin: 0;
+  font-size: 20px;
   font-weight: 700;
-  color: var(--tone);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
-
-.game-result[data-outcome="draw"] .game-result-title { color: var(--ink); }
 
 .game-result-detail {
   margin: 0;
   font-size: 14px;
-  color: var(--ink);
-}
-
-.game-result-meta {
-  margin: 4px 0 16px;
-  font-size: 12px;
   color: var(--dim);
 }
 
@@ -907,8 +908,8 @@ button { font: inherit; }
   to   { opacity: 1; }
 }
 
-@keyframes result-pop {
-  from { opacity: 0; transform: translateY(12px) scale(0.94); }
+@keyframes result-rise {
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
 

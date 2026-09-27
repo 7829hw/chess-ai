@@ -89,11 +89,14 @@
 
         <div id="game-result" class="game-result" hidden role="dialog" aria-modal="false" aria-labelledby="game-result-title">
           <div class="game-result-card">
-            <span class="game-result-pieces" id="game-result-pieces" aria-hidden="true"></span>
-            <p class="game-result-eyebrow">게임 종료</p>
-            <h2 class="game-result-title" id="game-result-title"></h2>
+            <div class="game-result-head">
+              <span class="game-result-pieces" id="game-result-pieces" aria-hidden="true"></span>
+              <div class="game-result-heading">
+                <p class="game-result-meta"><span class="game-result-badge" id="game-result-badge"></span><span id="game-result-meta"></span></p>
+                <h2 class="game-result-title" id="game-result-title"></h2>
+              </div>
+            </div>
             <p class="game-result-detail" id="game-result-detail"></p>
-            <p class="game-result-meta" id="game-result-meta"></p>
             <div class="game-result-actions">
               <button type="button" id="game-result-new" class="btn-primary">새 게임</button>
               <button type="button" id="game-result-close" class="btn-secondary">보드 보기</button>

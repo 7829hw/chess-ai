@@ -67,6 +67,7 @@ const dom = {
   resultTitle: byId('game-result-title'),
   resultDetail: byId('game-result-detail'),
   resultMeta: byId('game-result-meta'),
+  resultBadge: byId('game-result-badge'),
   resultNew: byId('game-result-new'),
   resultClose: byId('game-result-close'),
 };
@@ -213,6 +214,7 @@ function renderResultOverlay(game) {
   const { outcome, winner } = result;
   dom.result.dataset.outcome = outcome;
   dom.resultTitle.textContent = OUTCOME_TITLE[outcome];
+  dom.resultBadge.textContent = OUTCOME_BADGE[outcome];
 
   if (winner) {
     const who = outcome === 'win' ? '내가' : 'Stockfish가';
@@ -222,7 +224,7 @@ function renderResultOverlay(game) {
   }
 
   const plies = game.moveHistory.length;
-  dom.resultMeta.textContent = `${Math.ceil(plies / 2)}수 · ${game.difficulty.label}`;
+  dom.resultMeta.textContent = `게임 종료 · ${Math.ceil(plies / 2)}수 · ${game.difficulty.label}`;
 
   // The winner's king (both kings for a draw), drawn with the board's glyphs.
   const kings = winner ? [winner] : ['w', 'b'];
