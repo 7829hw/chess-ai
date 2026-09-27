@@ -207,6 +207,29 @@ body {
   cursor: not-allowed;
 }
 
+.btn-secondary {
+  flex: 0 0 auto;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: rgba(8, 13, 28, 0.6);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-secondary:hover:not(:disabled) { border-color: var(--accent); }
+
+.btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[hidden] { display: none !important; }
+
 .pending-note {
   margin: 0;
   font-size: 0.82rem;
@@ -498,6 +521,133 @@ body {
 
 .promotion-cancel:hover { color: var(--text); }
 
+/* --------------------------------------------------------------------- setup */
+
+.setup {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.setup .panel-title { margin: 0; }
+
+.setup-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.setup-palette {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
+}
+
+.palette-btn {
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--sq-dark);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.palette-btn:nth-child(n + 7):not(.palette-btn--eraser) { grid-row: 2; }
+
+.palette-btn .piece { font-size: clamp(1.4rem, 6vw, 1.9rem); }
+
+.palette-btn--eraser {
+  grid-column: 7;
+  grid-row: 1 / span 2;
+  aspect-ratio: auto;
+  background: rgba(8, 13, 28, 0.6);
+  border-color: var(--panel-border);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.palette-btn:hover { border-color: rgba(79, 140, 255, 0.5); }
+
+.palette-btn.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.setup-castling {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.setup-castling legend { padding: 0; margin-bottom: 0.35rem; }
+
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem 0.75rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.check input { accent-color: var(--accent); margin: 0; }
+
+.check:has(input:disabled) {
+  color: var(--text-dim);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.setup-tools {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.setup-tools .btn-secondary { flex: 1 1 0; }
+
+.setup-fen { display: grid; gap: 0.35rem; }
+
+.fen-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.fen-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(8, 13, 28, 0.6);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.fen-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.setup-message {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.setup-message[data-tone="ok"]    { color: var(--good); }
+.setup-message[data-tone="error"] { color: var(--bad); }
+
+.board--editing,
+.board--editing .square { cursor: crosshair !important; }
+
 /* ---------------------------------------------------------------------- info */
 
 .info-grid {
@@ -546,6 +696,8 @@ body {
   font-size: 0.9rem;
 }
 
+.move-san--gap { color: var(--text-dim); }
+
 .move-san--latest {
   background: var(--accent-soft);
   color: #cfe0ff;
@@ -590,7 +742,19 @@ body {
     column-gap: 1.25rem;
   }
 
+  /* The setup panel, when open, slots in under the controls. */
+  .app:has(> .setup:not([hidden])) {
+    grid-template-rows: auto auto auto auto 1fr;
+    grid-template-areas:
+      "header   header"
+      "board    controls"
+      "board    setup"
+      "board    info"
+      "board    moves";
+  }
+
   .app-header  { grid-area: header; }
+  .setup       { grid-area: setup; }
   .board-area  { grid-area: board; align-self: start; }
   .controls    { grid-area: controls; }
   .info        { grid-area: info; }

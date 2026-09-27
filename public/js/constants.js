@@ -16,6 +16,8 @@ export const STATE = Object.freeze({
   PLAYER_TURN: 'PLAYER_TURN',
   ENGINE_THINKING: 'ENGINE_THINKING',
   GAME_OVER: 'GAME_OVER',
+  /** The user is arranging a custom starting position; no game is running. */
+  SETUP: 'SETUP',
   ERROR: 'ERROR',
 });
 

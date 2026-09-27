@@ -46,6 +46,12 @@ export class ChessBoard {
   /** @type {string|null} */
   #checkSquare = null;
 
+  /**
+   * Set while the position editor owns the board: every press is reported as
+   * a square edit instead of a move. @type {((square: string, erase: boolean) => void) | null}
+   */
+  #onSquareEdit = null;
+
   /** In-flight pointer interaction. */
   #press = null;
   #drag = null;
@@ -86,6 +92,19 @@ export class ChessBoard {
       this.#cancelPointerInteraction();
       this.clearSelection();
     }
+  }
+
+  /**
+   * Switches the board into (or out of) position-editing mode. While a handler
+   * is set, a primary press reports `(square, false)` and a secondary press
+   * (right click) reports `(square, true)`, regardless of `setInteractive`.
+   * @param {((square: string, erase: boolean) => void) | null} handler
+   */
+  setEditHandler(handler) {
+    this.#onSquareEdit = handler ?? null;
+    this.#cancelPointerInteraction();
+    this.clearSelection();
+    this.#root.classList.toggle('board--editing', Boolean(this.#onSquareEdit));
   }
 
   /**
@@ -239,7 +258,7 @@ export class ChessBoard {
     // Suppress the native image/text drag so our pointer drag is the only one.
     this.#root.addEventListener('dragstart', (event) => event.preventDefault());
     this.#root.addEventListener('contextmenu', (event) => {
-      if (this.#drag) event.preventDefault();
+      if (this.#drag || this.#onSquareEdit) event.preventDefault();
     });
   }
 
@@ -254,6 +273,13 @@ export class ChessBoard {
   }
 
   #onPointerDown(event) {
+    if (this.#onSquareEdit) {
+      const square = this.#squareFromEvent(event);
+      const erase = event.pointerType === 'mouse' && event.button === 2;
+      if (square && (event.button === 0 || erase)) this.#onSquareEdit(square, erase);
+      return;
+    }
+
     if (!this.#interactive) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
 

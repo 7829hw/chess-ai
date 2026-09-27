@@ -1,7 +1,8 @@
 /**
  * Game orchestration: owns the chess.js rule engine, drives the board view and
  * the Stockfish worker, and is the single authority on the application state
- * machine (LOADING -> READY -> PLAYER_TURN <-> ENGINE_THINKING -> GAME_OVER).
+ * machine (LOADING -> READY -> PLAYER_TURN <-> ENGINE_THINKING -> GAME_OVER,
+ * with a SETUP detour while the user arranges a custom starting position).
  *
  * Every asynchronous continuation re-checks `#gameId`, so a reply that belongs
  * to an abandoned game is discarded instead of being played on the new board.
@@ -17,6 +18,7 @@ import {
   STATE,
   oppositeColor,
 } from './constants.js';
+import { DEFAULT_POSITION, normalizePosition } from './position.js';
 
 const ENGINE_LOAD_ERROR = 'Stockfish engine failed to load.';
 
@@ -32,6 +34,8 @@ export class GameController {
   #state = STATE.LOADING;
   #userColor = DEFAULT_USER_COLOR;
   #difficultyId = DEFAULT_DIFFICULTY;
+  /** Position every new game starts from (and that Stockfish is told about). */
+  #startFen = DEFAULT_POSITION;
 
   /** Incremented on every new game; invalidates all pending async work. */
   #gameId = 0;
@@ -78,6 +82,19 @@ export class GameController {
     return this.#errorMessage;
   }
 
+  get startFen() {
+    return this.#startFen;
+  }
+
+  get isCustomStart() {
+    return this.#startFen !== DEFAULT_POSITION;
+  }
+
+  /** Current position, e.g. to seed the setup editor. */
+  get fen() {
+    return this.#chess.fen();
+  }
+
   get turn() {
     return this.#chess.turn();
   }
@@ -115,12 +132,21 @@ export class GameController {
   }
 
   /**
-   * Resets everything and, when the user plays Black, immediately lets
-   * Stockfish open as White.
-   * @param {{userColor?: 'w'|'b', difficultyId?: string}} options
+   * Resets everything and, when it is Stockfish's move in the starting
+   * position, immediately lets it play.
+   * @param {{userColor?: 'w'|'b', difficultyId?: string, fen?: string}} options
+   *        `fen` replaces the starting position for this and later games; an
+   *        invalid one throws before anything is touched.
    */
-  async startNewGame({ userColor, difficultyId }) {
+  async startNewGame({ userColor, difficultyId, fen }) {
     if (this.#state === STATE.ERROR) return;
+
+    let startFen = this.#startFen;
+    if (fen !== undefined) {
+      const checked = normalizePosition(fen);
+      if (!checked.ok) throw new Error(checked.error);
+      startFen = checked.fen;
+    }
 
     // Invalidate in-flight work *before* touching any shared state.
     const gameId = ++this.#gameId;
@@ -130,7 +156,8 @@ export class GameController {
     if (userColor) this.#userColor = userColor;
     if (difficultyId && DIFFICULTIES[difficultyId]) this.#difficultyId = difficultyId;
 
-    this.#chess.reset();
+    this.#startFen = startFen;
+    this.#chess.load(startFen);
     this.#result = null;
 
     // User army on top => Stockfish's colour occupies the bottom half.
@@ -140,10 +167,11 @@ export class GameController {
     this.#setState(STATE.READY);
 
     console.info(
-      '[game] new game #%d, user=%s, difficulty=%s',
+      '[game] new game #%d, user=%s, difficulty=%s, start=%s',
       gameId,
       COLOR_NAMES[this.#userColor],
       this.#difficultyId,
+      startFen,
     );
 
     try {
@@ -161,6 +189,39 @@ export class GameController {
     if (this.#chess.turn() === this.#userColor) {
       this.#setState(STATE.PLAYER_TURN);
     } else {
+      await this.#runEngineTurn(gameId);
+    }
+  }
+
+  /**
+   * Pauses the current game while the user edits a position. Pending engine
+   * work is invalidated; `leaveSetup()` resumes the game if they back out.
+   */
+  enterSetup() {
+    if (this.#state === STATE.LOADING || this.#state === STATE.ERROR) return false;
+    if (this.#state === STATE.SETUP) return true;
+
+    ++this.#gameId;
+    this.#engine.cancelSearch();
+    this.#awaitingPromotion = false;
+    this.#board.clearSelection();
+    this.#setState(STATE.SETUP);
+    return true;
+  }
+
+  /** Abandons the setup and resumes the game that was paused. */
+  async leaveSetup() {
+    if (this.#state !== STATE.SETUP) return;
+
+    const gameId = ++this.#gameId;
+    // The editor may have previewed another side's orientation.
+    this.#board.setOrientation(this.engineColor);
+    this.#syncBoard();
+    if (this.#evaluateGameEnd()) return;
+    if (this.#chess.turn() === this.#userColor) {
+      this.#setState(STATE.PLAYER_TURN);
+    } else {
+      this.#setState(STATE.READY);
       await this.#runEngineTurn(gameId);
     }
   }
@@ -275,6 +336,7 @@ export class GameController {
 
     try {
       outcome = await this.#engine.search({
+        fen: this.isCustomStart ? this.#startFen : null,
         moves: this.#uciHistory(),
         depth,
         movetime,

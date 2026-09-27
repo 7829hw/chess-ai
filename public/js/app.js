@@ -15,6 +15,7 @@ import { ChessBoard } from './board.js';
 import { StockfishEngine } from './engine.js';
 import { GameController } from './game.js';
 import { PromotionDialog } from './promotion.js';
+import { PositionEditor } from './setup.js';
 
 const ENGINE_STATUS = Object.freeze({
   [STATE.LOADING]: 'Stockfish 엔진 로딩 중...',
@@ -22,6 +23,7 @@ const ENGINE_STATUS = Object.freeze({
   [STATE.PLAYER_TURN]: 'Stockfish 준비 완료',
   [STATE.ENGINE_THINKING]: 'Stockfish 생각 중...',
   [STATE.GAME_OVER]: 'Stockfish 대기 중',
+  [STATE.SETUP]: 'Stockfish 대기 중',
   [STATE.ERROR]: 'Stockfish engine failed to load.',
 });
 
@@ -31,6 +33,7 @@ const BANNER_TONE = Object.freeze({
   [STATE.PLAYER_TURN]: 'ready',
   [STATE.ENGINE_THINKING]: 'busy',
   [STATE.GAME_OVER]: 'done',
+  [STATE.SETUP]: 'done',
   [STATE.ERROR]: 'error',
 });
 
@@ -39,12 +42,15 @@ const dom = {
   sideGroup: byId('side-group'),
   difficultyGroup: byId('difficulty-group'),
   newGame: byId('new-game'),
+  setupOpen: byId('setup-open'),
+  gameActions: byId('game-actions'),
   pendingNote: byId('pending-note'),
   board: byId('board'),
   userTag: byId('user-tag'),
   engineTag: byId('engine-tag'),
   turnValue: byId('turn-value'),
   engineValue: byId('engine-value'),
+  startValue: byId('start-value'),
   resultValue: byId('result-value'),
   moveList: byId('move-list'),
   moveEmpty: byId('move-empty'),
@@ -83,6 +89,31 @@ const promotionDialog = new PromotionDialog({
   cancelButton: dom.promotionCancel,
 });
 
+const editor = new PositionEditor({
+  board,
+  elements: {
+    root: byId('setup'),
+    palette: byId('setup-palette'),
+    turnGroup: byId('setup-turn'),
+    castling: byId('setup-castling'),
+    standard: byId('setup-standard'),
+    clear: byId('setup-clear'),
+    fenInput: byId('setup-fen'),
+    fenLoad: byId('setup-fen-load'),
+    message: byId('setup-message'),
+    start: byId('setup-start'),
+    cancel: byId('setup-cancel'),
+  },
+  onStart: (fen) => {
+    editor.close();
+    startGame(fen);
+  },
+  onCancel: () => {
+    editor.close();
+    controller.leaveSetup().catch((error) => console.error('[app] could not resume the game', error));
+  },
+});
+
 const view = {
   onUpdate: (game) => render(game),
   askPromotion: (color) => promotionDialog.open(color),
@@ -101,32 +132,37 @@ function render(game) {
   dom.banner.textContent = bannerText(game);
   dom.banner.dataset.tone = BANNER_TONE[state] ?? 'ready';
 
-  const userColor = game.userColor;
+  // During setup the tags (and board orientation) preview the chosen side.
+  const userColor = state === STATE.SETUP ? selectedSide : game.userColor;
   dom.userTag.textContent = `USER · ${COLOR_NAMES[userColor]}`;
   dom.engineTag.textContent = `STOCKFISH · ${COLOR_NAMES[oppositeColor(userColor)]}`;
 
-  dom.turnValue.textContent = state === STATE.GAME_OVER
+  dom.turnValue.textContent = state === STATE.GAME_OVER || state === STATE.SETUP
     ? '—'
     : `${COLOR_NAMES[game.turn]}${game.turn === userColor ? ' (you)' : ' (Stockfish)'}`;
 
   renderEngineStatus(game);
+
+  dom.startValue.textContent = game.isCustomStart ? 'Custom position' : 'Standard';
 
   dom.resultValue.textContent = game.result
     ? `${game.result.headline} · ${game.result.detail}`
     : '—';
 
   dom.newGame.disabled = state === STATE.LOADING;
+  dom.setupOpen.disabled = state === STATE.LOADING || state === STATE.ERROR;
+  dom.gameActions.hidden = state === STATE.SETUP;
   setPressed(dom.sideGroup, 'side', selectedSide);
   setPressed(dom.difficultyGroup, 'difficulty', selectedDifficulty);
 
-  const sideMismatch = selectedSide !== userColor;
+  const sideMismatch = selectedSide !== userColor && state !== STATE.SETUP;
   dom.pendingNote.hidden = !sideMismatch;
   if (sideMismatch) {
     dom.pendingNote.textContent =
       `You are still playing ${COLOR_NAMES[userColor]}. Press "New Game" to switch to ${COLOR_NAMES[selectedSide]}.`;
   }
 
-  renderMoveList(game.moveHistory);
+  renderMoveList(game.moveHistory, game.startFen);
 }
 
 function bannerText(game) {
@@ -143,6 +179,8 @@ function bannerText(game) {
       return game.result ? `${game.result.headline} · ${game.result.detail}` : 'Game over';
     case STATE.PLAYER_TURN:
       return game.isCheck ? 'Check! Your move.' : 'Your move.';
+    case STATE.SETUP:
+      return 'Board setup — arrange the pieces, then start.';
     default:
       return '';
   }
@@ -159,19 +197,31 @@ function renderEngineStatus(game) {
   dom.engineValue.textContent = `${base}${suffix}${level}`;
 }
 
-function renderMoveList(history) {
+function renderMoveList(history, startFen) {
   dom.moveEmpty.hidden = history.length > 0;
 
+  // A custom position may start with Black to move and at any move number.
+  const [, startTurn, , , , startNumber] = startFen.split(' ');
+  const offset = startTurn === 'b' ? 1 : 0;
+
   const rows = [];
-  for (let i = 0; i < history.length; i += 2) {
+  for (let i = -offset; i < history.length; i += 2) {
     const li = document.createElement('li');
-    li.append(sanCell(history[i], i === history.length - 1));
+    if (i < 0) {
+      const gap = document.createElement('span');
+      gap.className = 'move-san move-san--gap';
+      gap.textContent = '…';
+      li.append(gap);
+    } else {
+      li.append(sanCell(history[i], i === history.length - 1));
+    }
     if (history[i + 1]) {
       li.append(sanCell(history[i + 1], i + 1 === history.length - 1));
     }
     rows.push(li);
   }
 
+  dom.moveList.start = Number(startNumber) || 1;
   dom.moveList.replaceChildren(...rows);
   dom.moveList.scrollTop = dom.moveList.scrollHeight;
 }
@@ -199,11 +249,13 @@ dom.sideGroup.addEventListener('click', (event) => {
   if (!button) return;
 
   selectedSide = button.dataset.side;
+  if (editor.isOpen) board.setOrientation(oppositeColor(selectedSide));
   render(controller);
 
   // Switching sides before the first move is harmless, so apply it at once;
-  // mid-game it waits for an explicit "New Game".
-  if (!controller.hasStarted && controller.state !== STATE.LOADING) {
+  // mid-game it waits for an explicit "New Game", and during board setup for
+  // the setup's own start button.
+  if (!controller.hasStarted && controller.state !== STATE.LOADING && !editor.isOpen) {
     startGame();
   }
 });
@@ -219,10 +271,19 @@ dom.difficultyGroup.addEventListener('click', (event) => {
 
 dom.newGame.addEventListener('click', () => startGame());
 
-function startGame() {
+dom.setupOpen.addEventListener('click', () => {
+  promotionDialog.close(null);
+  // Seed the editor with the position on the board, so "set up from here" works.
+  if (!controller.enterSetup()) return;
+  board.setOrientation(oppositeColor(selectedSide));
+  editor.open(controller.fen);
+});
+
+/** @param {string} [fen] New starting position; omitted replays the current one. */
+function startGame(fen) {
   promotionDialog.close(null);
   controller
-    .startNewGame({ userColor: selectedSide, difficultyId: selectedDifficulty })
+    .startNewGame({ userColor: selectedSide, difficultyId: selectedDifficulty, fen })
     .catch((error) => console.error('[app] could not start a new game', error));
 }
 

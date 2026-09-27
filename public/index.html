@@ -35,8 +35,9 @@
         </div>
       </div>
 
-      <div class="control-row control-row--action">
+      <div class="control-row control-row--action" id="game-actions">
         <button type="button" id="new-game" class="btn-primary" disabled>New Game</button>
+        <button type="button" id="setup-open" class="btn-secondary" disabled>Set up board</button>
       </div>
 
       <p id="pending-note" class="pending-note" hidden></p>
@@ -62,6 +63,46 @@
       <p class="side-tag side-tag--engine"><span id="engine-tag">STOCKFISH · Black</span></p>
     </section>
 
+    <section id="setup" class="panel setup" data-area="setup" hidden aria-label="Board setup">
+      <h2 class="panel-title">Board setup</h2>
+      <p class="setup-hint">Pick a piece, then tap squares to place it. Tap the same piece again or right-click to remove.</p>
+
+      <div class="setup-palette" id="setup-palette" role="group" aria-label="Piece palette"></div>
+
+      <div class="control-row">
+        <span class="control-label" id="setup-turn-label">To move</span>
+        <div class="segmented" id="setup-turn" role="group" aria-labelledby="setup-turn-label">
+          <button type="button" class="seg-btn is-active" data-turn="w" aria-pressed="true">White</button>
+          <button type="button" class="seg-btn" data-turn="b" aria-pressed="false">Black</button>
+        </div>
+      </div>
+
+      <fieldset class="setup-castling">
+        <legend class="control-label">Castling</legend>
+        <div id="setup-castling" class="check-grid"></div>
+      </fieldset>
+
+      <div class="setup-tools">
+        <button type="button" id="setup-standard" class="btn-secondary">Standard</button>
+        <button type="button" id="setup-clear" class="btn-secondary">Clear</button>
+      </div>
+
+      <div class="setup-fen">
+        <label class="control-label" for="setup-fen">FEN</label>
+        <div class="fen-row">
+          <input id="setup-fen" class="fen-input mono" type="text" spellcheck="false" autocomplete="off" />
+          <button type="button" id="setup-fen-load" class="btn-secondary">Load</button>
+        </div>
+      </div>
+
+      <p id="setup-message" class="setup-message" role="status" aria-live="polite"></p>
+
+      <div class="control-row control-row--action">
+        <button type="button" id="setup-start" class="btn-primary">Start from this position</button>
+        <button type="button" id="setup-cancel" class="btn-secondary">Cancel</button>
+      </div>
+    </section>
+
     <section class="panel info" data-area="info" aria-label="Game state">
       <dl class="info-grid">
         <div class="info-item">
@@ -71,6 +112,10 @@
         <div class="info-item">
           <dt>Engine</dt>
           <dd id="engine-value">로딩 중...</dd>
+        </div>
+        <div class="info-item">
+          <dt>Start</dt>
+          <dd id="start-value">Standard</dd>
         </div>
         <div class="info-item">
           <dt>Result</dt>

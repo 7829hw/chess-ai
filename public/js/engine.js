@@ -175,13 +175,14 @@ export class StockfishEngine {
    * Runs one search.
    *
    * @param {object} options
+   * @param {string}   [options.fen]    Starting position; omitted or null means startpos.
    * @param {string[]} options.moves    Game history in UCI long algebraic form.
    * @param {number}   options.depth
    * @param {number}   options.movetime  Milliseconds.
    * @returns {Promise<{seq:number, bestmove:string|null, aborted:boolean}>}
    *          `bestmove` is `null` for `bestmove (none)` or for an aborted search.
    */
-  search({ moves, depth, movetime }) {
+  search({ fen = null, moves, depth, movetime }) {
     this.#assertUsable();
     if (!this.#ready) {
       return Promise.reject(new EngineError('Refusing to search before the engine is ready'));
@@ -191,9 +192,8 @@ export class StockfishEngine {
     this.cancelSearch();
 
     const seq = ++this.#searchSeq;
-    const position = moves.length > 0
-      ? `position startpos moves ${moves.join(' ')}`
-      : 'position startpos';
+    const base = fen ? `position fen ${fen}` : 'position startpos';
+    const position = moves.length > 0 ? `${base} moves ${moves.join(' ')}` : base;
 
     return new Promise((resolve, reject) => {
       const timeoutMs = movetime + SEARCH_TIMEOUT_MARGIN_MS;

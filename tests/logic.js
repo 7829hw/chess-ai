@@ -24,6 +24,8 @@ const OUT = process.env.OUT || '/work/out';
     const { PromotionDialog } = await import('/js/promotion.js');
     const { StockfishEngine } = await import('/js/engine.js');
     const { STATE } = await import('/js/constants.js');
+    const { normalizePosition, DEFAULT_POSITION } = await import('/js/position.js');
+    const { PositionEditor } = await import('/js/setup.js');
 
     const out = [];
     const check = (name, pass, detail = '') => out.push({ name, pass: Boolean(pass), detail: String(detail) });
@@ -43,7 +45,9 @@ const OUT = process.env.OUT || '/work/out';
         setSkillLevel(level) { api.skillLevels.push(level); return true; },
         async newGame(opts) { api.newGameCalls += 1; api.log.push('newgame:' + opts.skillLevel); },
         cancelSearch() { api.cancels += 1; },
-        async search({ moves }) {
+        fens: [],
+        async search({ fen = null, moves }) {
+          api.fens.push(fen);
           api.log.push('search:' + moves.join(' '));
           const best = api.queue.shift() ?? null;
           if (api.latency) await tick(api.latency);
@@ -359,6 +363,168 @@ const OUT = process.env.OUT || '/work/out';
       check('Escape resolves with null', (await escaped) === null);
     }
 
+    // ================================ 18. custom position validation
+    {
+      const ok = (fen) => normalizePosition(fen);
+      check('standard position accepted', ok(DEFAULT_POSITION).ok && ok(DEFAULT_POSITION).fen === DEFAULT_POSITION);
+      check('short FEN padded', ok('4k3/8/8/8/8/8/4P3/4K3 w').fen === '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1',
+        JSON.stringify(ok('4k3/8/8/8/8/8/4P3/4K3 w')));
+      check('missing king rejected', !ok('8/8/8/8/8/8/4P3/4K3 w - - 0 1').ok);
+      check('two white kings rejected', !ok('4k3/8/8/8/8/8/8/3KK3 w - - 0 1').ok);
+      check('pawn on back rank rejected', !ok('4k2P/8/8/8/8/8/8/4K3 w - - 0 1').ok);
+      const inCheck = ok('4k3/8/8/8/8/8/4R3/3K4 w - - 0 1');
+      check('check on the side not to move rejected', !inCheck.ok && /Black is in check/.test(inCheck.error),
+        inCheck.error);
+      check('check on the side to move accepted', ok('4k3/4R3/8/8/8/8/8/4K3 b - - 0 1').ok);
+      check('checkmate position rejected', !ok('4k3/4Q3/4K3/8/8/8/8/8 b - - 0 1').ok);
+      check('stalemate position rejected', !ok('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1').ok);
+      check('bare kings rejected', !ok('4k3/8/8/8/8/8/8/4K3 w - - 0 1').ok);
+      check('impossible castling rights stripped',
+        ok('r3k3/8/8/8/8/8/8/4K2R w KQkq - 0 1').fen === 'r3k3/8/8/8/8/8/8/4K2R w Kq - 0 1',
+        ok('r3k3/8/8/8/8/8/8/4K2R w KQkq - 0 1').fen);
+      check('nine pawns rejected', !ok('4k3/8/8/8/8/P7/PPPPPPPP/4K3 w - - 0 1').ok);
+      check('garbage rejected', !ok('hello world').ok);
+    }
+
+    // ============================== 19. game from a custom position
+    {
+      const fen = '4k3/8/8/8/8/8/4P3/4K2R b K - 0 30';
+      const h = makeHarness();
+      h.engine.queue = ['e8d7'];
+      await h.controller.startNewGame({ userColor: 'w', fen });
+      await tick(5);
+      check('custom start: Black to move -> engine moves first', sans(h).join(',') === 'Kd7', sans(h).join(','));
+      check('custom start: engine told the FEN', h.engine.fens[0] === fen, h.engine.fens[0]);
+      check('custom start flagged', h.controller.isCustomStart === true);
+      check('custom start: board shows the rook on h1',
+        h.root.querySelector('[data-square="h1"]').dataset.piece === 'wr');
+      check('custom start: castling still legal', h.controller.legalTargetsFor('e1').includes('g1'),
+        h.controller.legalTargetsFor('e1').join(','));
+
+      await playOut(h, ['e2e4'], ['d7c6']);
+      await tick(5);
+      check('custom start: history continues from the FEN', h.engine.log.includes('search:e8d7 e2e4'),
+        h.engine.log.at(-1));
+
+      // New Game replays the same custom position.
+      h.engine.queue = ['e8f7'];
+      await h.controller.startNewGame({});
+      await tick(5);
+      check('New Game keeps the custom start', h.controller.startFen === fen && sans(h).join(',') === 'Kf7',
+        h.controller.startFen + ' ' + sans(h).join(','));
+
+      let threw = false;
+      try { await h.controller.startNewGame({ fen: '8/8/8/8/8/8/8/8 w - - 0 1' }); } catch { threw = true; }
+      check('invalid custom FEN throws', threw);
+      check('invalid FEN leaves the previous game intact', sans(h).join(',') === 'Kf7', sans(h).join(','));
+
+      await h.controller.startNewGame({ fen: DEFAULT_POSITION });
+      check('standard start restored', h.controller.isCustomStart === false);
+      check('standard start searches from startpos', h.engine.fens.every((f, i) => i < 3 || f === null));
+    }
+
+    // =================================== 20. setup pauses and resumes a game
+    {
+      const h = makeHarness();
+      h.engine.queue = ['e7e5'];
+      await h.controller.startNewGame({ userColor: 'w' });
+      h.engine.latency = 50;
+      const pending = h.controller.attemptUserMove('e2', 'e4');
+      await tick(5);
+      check('engine thinking before setup', h.controller.state === STATE.ENGINE_THINKING, h.controller.state);
+      check('enterSetup succeeds', h.controller.enterSetup() === true);
+      check('state is SETUP', h.controller.state === STATE.SETUP, h.controller.state);
+      await pending;
+      await tick(60);
+      check('reply that arrives during setup is dropped', sans(h).join(',') === 'e4', sans(h).join(','));
+      check('board locked for play during setup', h.root.classList.contains('board--locked'));
+
+      h.engine.queue = ['c7c5'];
+      h.engine.latency = 0;
+      await h.controller.leaveSetup();
+      await tick(5);
+      check('cancelling setup resumes the engine turn', sans(h).join(',') === 'e4,c5', sans(h).join(','));
+      check('state back to PLAYER_TURN', h.controller.state === STATE.PLAYER_TURN, h.controller.state);
+    }
+
+    // ================================= 21. position editor (DOM behaviour)
+    {
+      const h = makeHarness();
+      await h.controller.startNewGame({ userColor: 'w' });
+      const host = document.createElement('div');
+      host.innerHTML = `
+        <div id="t-root"><div id="t-palette"></div>
+        <div id="t-turn"><button data-turn="w"></button><button data-turn="b"></button></div>
+        <div id="t-castling"></div><button id="t-standard"></button><button id="t-clear"></button>
+        <input id="t-fen"><button id="t-load"></button><p id="t-msg"></p>
+        <button id="t-start"></button><button id="t-cancel"></button></div>`;
+      document.body.append(host);
+      const q = (id) => host.querySelector('#' + id);
+      let started = null;
+      const editor = new PositionEditor({
+        board: h.board,
+        elements: {
+          root: q('t-root'), palette: q('t-palette'), turnGroup: q('t-turn'), castling: q('t-castling'),
+          standard: q('t-standard'), clear: q('t-clear'), fenInput: q('t-fen'), fenLoad: q('t-load'),
+          message: q('t-msg'), start: q('t-start'), cancel: q('t-cancel'),
+        },
+        onStart: (fen) => { started = fen; },
+        onCancel: () => {},
+      });
+      h.controller.enterSetup();
+      editor.open(h.controller.fen);
+
+      const tap = (square, button = 0) => {
+        const el = h.root.querySelector(`[data-square="${square}"]`);
+        el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button, pointerType: 'mouse', pointerId: 1 }));
+      };
+      const pick = (tool) => q('t-palette').querySelector(`[data-tool="${tool}"]`).click();
+
+      check('editor seeded with the game position', q('t-fen').value === DEFAULT_POSITION, q('t-fen').value);
+      check('palette has 12 pieces + eraser', q('t-palette').querySelectorAll('button').length === 13);
+
+      q('t-clear').click();
+      check('clear empties the board', h.root.querySelectorAll('.square[data-piece]').length === 0);
+      check('empty board cannot start', q('t-start').disabled === true, q('t-msg').textContent);
+
+      pick('wk'); tap('e1');
+      pick('bk'); tap('e8');
+      pick('wq'); tap('d1');
+      check('placed pieces render on the board',
+        h.root.querySelector('[data-square="d1"]').dataset.piece === 'wq'
+        && h.root.querySelector('[data-square="e8"]').dataset.piece === 'bk');
+      check('FEN field follows the edits', q('t-fen').value === '4k3/8/8/8/8/8/8/3QK3 w - - 0 1', q('t-fen').value);
+      check('legal setup can start', q('t-start').disabled === false, q('t-msg').textContent);
+
+      pick('wk'); tap('a1');
+      check('placing a second king moves it', !h.root.querySelector('[data-square="e1"]').dataset.piece
+        && h.root.querySelector('[data-square="a1"]').dataset.piece === 'wk');
+
+      tap('d1', 2);
+      check('right click erases', !h.root.querySelector('[data-square="d1"]').dataset.piece);
+
+      pick('wp'); tap('c8');
+      check('pawn on the last rank refused', !h.root.querySelector('[data-square="c8"]').dataset.piece);
+
+      pick('wr'); tap('h1'); pick('wk'); tap('e1');
+      const ks = q('t-castling').querySelector('[data-right="K"]');
+      const qs = q('t-castling').querySelector('[data-right="Q"]');
+      check('castling offered only when king and rook are home', !ks.disabled && qs.disabled);
+      ks.click();
+      q('t-turn').querySelector('[data-turn="b"]').click();
+      check('turn + castling reflected in FEN', q('t-fen').value === '4k3/8/8/8/8/8/8/4K2R b K - 0 1', q('t-fen').value);
+
+      q('t-fen').value = '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1';
+      q('t-load').click();
+      check('FEN load updates the board', h.root.querySelector('[data-square="d1"]').dataset.piece === 'wr');
+      q('t-start').click();
+      check('start hands over the validated FEN', started === '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1', started);
+
+      editor.close();
+      check('closing leaves edit mode', !h.root.classList.contains('board--editing'));
+      host.remove();
+    }
+
     // =========================== 17. engine.js UCI protocol (stubbed Worker)
     {
       const realWorker = window.Worker;
@@ -424,6 +590,13 @@ const OUT = process.env.OUT || '/work/out';
         const r2 = await eng.search({ moves: ['e2e4', 'e7e5'], depth: 6, movetime: 100 });
         check('move history forwarded as position startpos moves ...',
           w.sent.includes('position startpos moves e2e4 e7e5'), JSON.stringify(r2.bestmove));
+
+        const customFen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1';
+        await eng.search({ fen: customFen, moves: [], depth: 6, movetime: 100 });
+        check('custom start sent as position fen', w.sent.includes(`position fen ${customFen}`), w.sent.at(-2));
+        await eng.search({ fen: customFen, moves: ['e2e4'], depth: 6, movetime: 100 });
+        check('custom start + history sent as position fen ... moves',
+          w.sent.includes(`position fen ${customFen} moves e2e4`), w.sent.at(-2));
 
         // bestmove (none)
         w.autoBest = '(none)';

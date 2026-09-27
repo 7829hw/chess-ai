@@ -147,6 +147,73 @@ const check = (name, pass, detail = '') => {
   check('engine worker script fetched exactly once', engineScriptHits.length === 1,
     `${engineScriptHits.length} hit(s)`);
 
+  // ---- board setup: build a back-rank mate position by hand ----
+  await page.click('#setup-open');
+  check('setup panel opens', await page.$eval('#setup', (e) => !e.hidden));
+  check('game actions hidden during setup', await page.$eval('#game-actions', (e) => e.hidden));
+  await page.click('button[data-side="w"]');
+  check('side change during setup does not start a game',
+    await page.$eval('#setup', (e) => !e.hidden) && /setup/i.test(await banner()), await banner());
+
+  check('setup previews the chosen side on top', (await layout())[0].sq === 'h1', (await layout())[0].sq);
+  await page.click('#setup-clear');
+  const place = async (tool, squares) => {
+    await page.click(`#setup-palette [data-tool="${tool}"]`);
+    for (const sq of squares) await page.click(`[data-square="${sq}"]`);
+  };
+  await place('wk', ['g1']);
+  await place('wr', ['a1']);
+  await place('wp', ['f2', 'g2', 'h2']);
+  await place('bk', ['g8']);
+  await place('bp', ['f7', 'g7', 'h7', 'a7']);
+  await page.click('[data-square="a7"]', { button: 'right' });
+  const setupFen = await page.$eval('#setup-fen', (e) => e.value);
+  check('hand-built position produces the expected FEN',
+    setupFen === '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', setupFen);
+  check('start enabled for a legal position', await page.$eval('#setup-start', (e) => !e.disabled),
+    await page.$eval('#setup-message', (e) => e.textContent));
+  await page.screenshot({ path: `${OUT}/07-setup.png` });
+
+  await page.click('#setup-start');
+  await page.waitForFunction(
+    () => document.getElementById('status-banner').textContent.includes('Your move'), null, { timeout: 60000 });
+  check('setup closes after start', await page.$eval('#setup', (e) => e.hidden));
+  check('start value reports a custom position',
+    (await page.$eval('#start-value', (e) => e.textContent)) === 'Custom position');
+  await page.click('[data-square="a1"]');
+  await page.click('[data-square="a8"]');
+  await page.waitForFunction(
+    () => document.getElementById('result-value').textContent.includes('win'), null, { timeout: 30000 });
+  check('mate from the custom position is detected',
+    /You win/.test(await page.$eval('#result-value', (e) => e.textContent)),
+    await page.$eval('#result-value', (e) => e.textContent));
+
+  // ---- board setup: Stockfish to move in the custom position ----
+  await page.click('#setup-open');
+  await page.fill('#setup-fen', '4k3/8/8/8/8/8/4P3/4K2R b K - 0 1');
+  await page.click('#setup-fen-load');
+  await page.click('#setup-start');
+  await page.waitForFunction(
+    () => document.querySelectorAll('#move-list .move-san:not(.move-san--gap)').length === 1
+       && document.getElementById('status-banner').textContent.includes('Your move'),
+    null, { timeout: 60000 });
+  const blackFirst = await moves();
+  check('Stockfish opens as Black from the custom position',
+    blackFirst[0] === '…' && /^K/.test(blackFirst[1] ?? ''), blackFirst.join(' '));
+  check('white can still castle in the custom position',
+    await page.evaluate(() => { document.querySelector('[data-square="e1"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse', pointerId: 9 })); return document.querySelector('[data-square="g1"]').classList.contains('square--target'); }));
+  await page.screenshot({ path: `${OUT}/08-custom-game.png` });
+
+  // ---- cancelling setup resumes the paused game ----
+  const beforeCancel = await moves();
+  await page.click('#setup-open');
+  await page.click('#setup-clear');
+  await page.click('#setup-cancel');
+  check('cancel restores the game position',
+    (await layout()).filter((c) => c.piece).length === 4 && (await moves()).join(' ') === beforeCancel.join(' '),
+    (await moves()).join(' '));
+  check('cancel returns to the player turn', /Your move/.test(await banner()), await banner());
+
   // ---- mobile viewport ----
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   await mobile.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -160,6 +227,10 @@ const check = (name, pass, detail = '') => {
   }));
   check('no horizontal overflow on 390px viewport', overflow.docW <= overflow.winW + 1, JSON.stringify(overflow));
   await mobile.screenshot({ path: `${OUT}/05-mobile.png`, fullPage: true });
+  await mobile.click('#setup-open');
+  const setupOverflow = await mobile.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  check('setup panel fits a 390px viewport', setupOverflow <= 1, `${setupOverflow}px`);
+  await mobile.screenshot({ path: `${OUT}/09-mobile-setup.png`, fullPage: true });
   await mobile.close();
 
   check('no failed requests', failedRequests.length === 0, failedRequests.join(' | '));
